@@ -1,0 +1,324 @@
+# Building a Population Pyramid
+
+Now that we have a handle on the basic plotting features of `ggplot`, and we have talked about distributions and visualized them as histograms, I think we are ready to try and tackle the creation of a population pyramid chart. Recall for a moment on what a population pyramid looks like. We can describe it in terms of what we've been talking about this week -- it's just two histograms turned on their side so that they share an x axis, which becomes the y axis, with one group featured on the left and another on the right. In the case of most population pyramids, this data is split by gender, and the x axis is the number of people while the y axis is the age of people.
+
+![Population Pyramid from Course 1](population_pyramid.png)
+
+We know how to do most of these things -- how to calculate frequencies, build histograms, render different plots and layers together, and so forth. But we haven't talked about flipping things on their side, so that sounds fun to explore, and at the same time let's dive into some of the primitives for drawing in `ggplot`. And just for fun, I'm going to make one little tweak to the population pyramid, and render each side as a **stacked histogram**, so that we can see one more variable.
+
+### Cleaning the BRFSS Data
+
+I'm going to use the BRFSS data since we've spent a decent amount of time with it and can get going on it quickly. I'm going to add in one new variable (ADDEPEV3) which is the answer to the question __Have you ever been told or have had a depressive disorder (including depression, major depression, dysthymia, or minor depression)?__ I think mental health is a critical issue facing us in society, and I'd be interested to see how this breaks down over age and sex populations in the american population.
+
+```{r}
+# Let's bring in our data cleaning from the previous lecture
+library("tidyverse")
+library("janitor")
+library("foreign")
+library("tidylog")
+
+# Here are some human readable labels from the codebook
+income2_levels=c("< $10,000", "< $15,000", "< 20,000", "< 25,000", "< 35,000", "< 50,000", "< 75,000", ">= $75,000")
+x_race_levels=c("White", "Black", "Amer. Ind. Alaskan Nat.", "Asian", "Native Haw. or Pac. Isl.", "Other", "Multiracial", "Hispanic")
+x_sex_levels=c("Male","Female")
+x_ageg5yr_levels=c("18-24","25-29","30-34","35-39","40-44","45-49","50-54","55-59","60-64","65-69","70-74","75-79","80+")
+addepev3_levels=c("Yes","No")
+
+data <- read.xport("LLCP2020.XPT", fill = NA) |> 
+  # Clean data formats
+  clean_names() |>
+  # Choose variables (columns) we want
+  select(x_race,income2,wtkg3,htm4,x_sex,x_ageg5yr,addepev3) |>
+  # Filter for observations (rows) of interest
+  filter(between(x_race,1,8)) |>
+  filter(between(income2,1,8)) |>
+  filter(between(wtkg3,2300,29500)) |>
+  filter(between(htm4,91,244)) |>
+  filter(between(x_sex,1,2)) |>
+  filter(between(x_ageg5yr,1,13)) |>
+  filter(between(addepev3,1,2)) |>
+  # Convert datatypes (factors and labels on levels)
+  mutate(
+    x_sex=lvls_revalue(as_factor(x_sex), x_sex_levels),
+    x_race=lvls_revalue(as_factor(x_race), x_race_levels),
+    x_ageg5yr=lvls_revalue(as_factor(x_ageg5yr), x_ageg5yr_levels),
+    income2=lvls_revalue(as_factor(income2), income2_levels),
+    addepev3=lvls_revalue(as_factor(addepev3), addepev3_levels))
+
+data |> head()
+```
+Isn't that beautiful? So succinct and readable, and code that's really easy to maintain and change as our analyses might. I of course wanted to throw one more thing at you, and introduced the `lvls_revalue` function which is actually from the `forcats` package. It allows us to take a character vector the same length as our levels and just overwrite the level names. We did this previously with the `levels` function, but that function is not easy to pass into the `tidyverse` pipe-based cleaning, so to use it here would have required additional statements.
+
+## Calculating Frequencies
+
+Often we can use the `ggplot` histogram to calculate frequencies of interest and plot them directly, but since we are customizing this plot we're going to actually use some `geom_bar` charts like we did originally back in week 1 of this course. In this case we need to write some data processing. The question we want to understand is if, by age group and gender, the response to the question on mental health is a yes or a no. So we want to calculate the frequencies for all of the 20-25 year old men who said yes, all of the 20-25 year old men who said no, all of the 20-25 year old women who said yes, and so forth. This means we're going to do a `dplyr` `group_by` on these three variables, and pipe that to `summarize` and `mutate` to create a new variable in our dataset
+
+```{r}
+grouped_data <- data |>
+  # We can group by all unique combinations of our variables by listing them here
+  group_by(x_ageg5yr, x_sex, addepev3) |>
+  # And we'll create a new column called population to hold our frequencies
+  summarise(population = n())
+```
+
+Now for a little trick -- we want the population centered around zero, and we'll eventually flip this from an x axis into a y axis. So we want half of our sample, by sex, to be negative values, and we want the other half of the sample to be positive values. That will give us the unique ribbing effect of the population plot. Since we've converted things into factors already it gets a little bit harder to do this. I could go back and undo the factor conversion, but I want you to see how we can compare values which are factors to the level labels.
+
+```{r}
+# If we wanted to negate all values where x_sex=="Female" that would be a
+# straight forward mutate call. But we don't have strings anymore, we have a
+# factor and it has two levels. This means we want to extract a single level
+# object -- one label in our factor -- for comparison. Since we created our
+# levels as ("Male","Female"), the level we want to extract is in the second
+# position of this vector, so we can pull out our base R query syntax
+women <- levels(grouped_data$x_sex)[2]
+
+# Now a quick mutate to change the population values for women to be negative
+grouped_data <- grouped_data |>
+  mutate(population = ifelse(x_sex==women, -population, population))
+
+# And lets look at our grouped tibble
+head(grouped_data)
+```
+
+## Building our histograms
+
+Now that we have our base data we just need to visualize it! I'm going to start by building base histograms, and since we have the frequency data calculated this is going to be a `geom_bar` layer. Now, I want to color the bars based on four factors, Yes to the mental health question and Male, No to the mental health question and Male, Yes to the mental health question and Female, and No to the mental health question and Female. We could have done this in `dplyr` with a new column and reduced our `tibble`, but I want to show you how you can do this on the fly in `ggplot`. I'm going to use a function called `interaction`, which simply takes a list of factors (in this case `addepev3` and `x_sex`) and creates a new factor which is a multiplication of these. The term interaction is from statistics, and means we are looking for an interaction effect, while another way to refer to this is a Cartesian product or if you use SQL a cross join.
+
+```{r}
+# I'll pass in the aesthetics to our base plot, and I'll set the fill of the
+# bars to be this new interaction factor, while the height will be our population
+# frequency value and our x the ages. By default a geom_bar uses the stat value
+# of count, but here we already have our values in our dataframe, so I'm going
+# to override that and set the stat to identity, which tell geom_bar to do no
+# statistical transform
+gg_pop <- ggplot(grouped_data, aes(x = x_ageg5yr , 
+                           fill = interaction(addepev3,x_sex),
+                           y = population)) +
+  geom_bar(stat = "identity") 
+print(gg_pop)
+```
+Ok, so what we have now is a stacked histogram, where the Female population is on the bottom, the Male population is on the top, and we have our interaction effect variable in color. If you tilt your head to the right you'll see this is our population pyramid! Let's clean that up a bit and make it more presentable. Our first task is to turn it on its side. To do this we are going to modify the coordinates of the plot. Generally we use Cartesian coordinates for most plots, however there are other kinds of coordinate systems we can use. In this case we just want to flip the x and y, and `ggplot` has a function called `coord_flip` to do this. Keep in mind that the coordinates affect all layers, though right now we just have one layer on top of our base.
+
+```{r}
+# I'll just add in that coordinate flipping to our plot
+gg_pop <- gg_pop +
+  coord_flip()
+print(gg_pop)
+```
+That's all there is to it, a nice looking population pyramid!
+
+## Improving the Visuals
+
+Ok, nice looking might be a bit too far. It's functional, but I'm not sure I would put this in front of a decision maker yet. First, all of our labels are pretty basic or missing, the x axis labels are wrong from women, and the colors are pretty garish, and it's not very intuitive. So let me show you how I might fix this up. First up, some real labels.
+
+```{r}
+gg_pop <- gg_pop +
+    labs(title="Population Pyramid",
+         subtitle="Response to: Have you ever been told or have had a depressive disorder (including depression, major depression, dysthymia, or minor depression)?",
+         caption="Data from the Behavioral Risk Factor Surveillance System (BRFSS), 2020",
+         y="Population",
+         x="Age (years)",
+         fill="Answer/Sex")
+print(gg_pop)
+```
+We'll come back to the legend in a bit, but let's fix up the units on that new `x` axis. We still refer to this as the `y` axis, because it is, our plot is just being flipped, so watch out for that. When we want to change tick marks we're going to use the `scale_` functions. In this case I'm going to use the scale function and change the labels by using the absolute value of the labels. I also want to see more values along that axis, so I'm going to give a nudge to `ggplot` to try and render more tick label vales.
+
+```{r}
+# The labels assignment in this case is just taking in a function, which means
+# that it's going to apply that function to all of the labels. To nudge ggplot
+# to improve the scale I'm going to set the number of major breaks to 10. This
+# is just a hint to ggplot, it's still going to make something beautiful and
+# balanced, so if you want to insist on certain breaks you can pass a vector
+# in as the breaks argument instead
+gg_pop <- gg_pop + 
+  scale_y_continuous(labels = abs, n.breaks=10)
+print(gg_pop)
+```
+I'm not a big fan of these colors. They are certainly distinct, but we can tweak them to make them fit in with, say, other charts or literature we might be presenting to stakeholders. In this case I'm going to use the University of Michigan colors. Now, when I came to Michigan ten years ago I have to tell you, I was a little taken aback -- everyone in the town is wearing navy blue and yellow, and not a subtle faded yellow but a screaming bright yellow. What I was quick to be told though is that it's not yellow, but __maize__, which is another word for corn. So I'm going to use the official Michigan colors of maize and blue, and I just looked up the color identification codes on the website. There are lots of color pickers which will allow you to find the appropriate hex codes for colors you might be interested in.
+
+```{r}
+# Here's our colors
+maize_and_blue<-c("#FFCB05","#00274C","#FFCB05","#00274C")
+
+# Now remember, we change visual aspects of aesthetics by scaling them, so in
+# this case we want to scale the fill color. This might seem pretty unintuitive
+# when you first do it.
+
+# Also, we have four values, but I only want two colors, where the Yes values
+# are maize and the No values are blue. So I've designed my vector of colors
+# with four items in it
+gg_pop <- gg_pop + 
+  scale_fill_manual(values=maize_and_blue)
+print(gg_pop)
+```
+I will say that, after being in Michigan for ten years, half my wardrobe is now maize and blue and it seems perfectly normal to me! Now, I think we could increase the clarity in the main plot by tweaking a few things. Once the high level details of the data rendering are done we can change visual aspects of a chart with `ggplot` themes. I'll be honest, I use the themes which come with `ggplot` to create fairly minimal graphics for academic publishing. But there is a fair bit of customization available and in the last week of this course we will talk about some of the things you might want to consider when customizing your plots. And, as you can imagine, the `theme()` function affects all layers in the plot.
+
+```{r}
+# The theme() function just maps a number of different features of the plot and
+# you can look at the docs for more details. In this case I'm going to wipe
+# out the background color and fill by setting that to NA, then I'm going to
+# set the grid lines to white and remove the grid lines for the y axis, and
+# finally I'll put the background panel *on top* of the plot so it breaks up
+# out bars.
+pop_theme <- theme(
+  panel.background = element_rect(fill = NA, colour = NA),
+  panel.grid.major = element_line(size = 0.5, linetype = 'solid',
+                                color = "white"), 
+  panel.grid.minor = element_line(size = 0.5, linetype = 'solid',
+                                color = "white"),
+  panel.ontop = TRUE,
+  panel.grid.major.y = element_blank(),
+  panel.grid.minor.y = element_blank()  
+  )
+gg_pop <- gg_pop + pop_theme
+print(gg_pop)
+```
+
+Now that we've gotten to this point I'm not loving that the tick mark at 0 is the same as the rest and this makes it a bit difficult to see where the women and men are divided. With the panel rendered on top though, the only way to fix this is to remove it, and render a new line.
+
+```{r}
+# First I'm going to hard code in the major and minor axis breaks, removing the
+# one which would show up at 0. Then I'm going to draw a new horizontal line
+# using geom_hline at the y coordinate of 0. Why a horizontal line? Because we
+# flip our chart, so it will actually show up as a vertical line :)
+gg_pop <- gg_pop + scale_y_continuous(labels = abs, 
+                                      breaks=c(15000,10000,5000,-5000,-10000,-15000), 
+                                      minor_breaks=c(12500,7500,2500,-2500,-7500,-12500)) + 
+  geom_hline(yintercept = 0,linetype='dashed', col = 'white')
+
+print(gg_pop)
+```
+Ok! Now let's directly render in the Male and Female labels so we can reduce the legend to just yes and no.
+
+```{r}
+# Annotations are tricky here! Remember our axes values, one of them is a
+# factor and the other is continuous. So if we want the females and males
+# text to show up towards the top of the plot, we're actually going to use the
+# x position -- which is now our visual y axis - as the number of factors high
+# that we want the label rendered!
+gg_pop <- gg_pop + 
+  annotate("text", 
+           y = c(-14500,12500), 
+           x = c(12.5,12.5), 
+           label = c("Females", "Males"),
+           color="black",
+           size=3)
+print(gg_pop)
+```
+*sigh*
+
+The struggle is real when it comes to producing a really unique visual. In this case our rendered panel is on top of our data, which is great but now it also runs through our labels making them look a little wonky with white lines overlapping. I wanted to show you my real struggle to try and put this together -- it's not like I just sat down and rattled off the final version! Experimentation and persistence was required as new design issues came up. A fix for this is to put our panel back below the data plot and manually plot some more horizontal (which will be flipped to vertical) lines.
+
+```{r}
+# Wipe out most of the theme -- your plot can only have one theme at a time
+pop_theme <- theme(
+  panel.background = element_rect(fill = NA, colour = NA),
+  panel.ontop = FALSE,
+  panel.grid.major.y = element_blank(),
+  panel.grid.minor.y = element_blank()  
+  )
+gg_pop <- gg_pop + pop_theme
+
+# Now plot a bunch of full height white ticklines
+for (z in c(15000,12500,10000,7500,5000,2500,-2500,-5000,-7500,-10000,-12500,-15000)){
+  gg_pop <- gg_pop + geom_hline(yintercept = z,linetype='solid', col = 'white')
+}
+
+# Now put our annotations on top. Technically I have the old ones in the plot
+# still, I would go back and fix this with my final version once I've massaged
+# things as I would like
+gg_pop <- gg_pop + 
+  annotate("text", 
+           y = c(-14500,12500), 
+           x = c(12.5,12.5), 
+           label = c("Females", "Males"),
+           color="black",
+           size=3)
+print(gg_pop)
+```
+Now I'm going to plot the legend manually inside the graphic. So I need to tell `ggplot` to just drop the legend and then I'll make a few objects myself.
+
+```{r}
+print( gg_pop + theme(legend.position = "none") +
+  annotate("text", x = c(4.5,3.5), y = c(15500,15500), 
+              label = c("Yes","No"),
+              size=4) +
+  annotate("rect", 
+           xmin = c(4,3),
+           xmax = c(5,4),
+           ymin = c(12300,12300),
+           ymax = c(14300,14300),
+           alpha= 1, 
+           fill= maize_and_blue[1:2])
+)
+```
+Ooooh it's looking good! Last thing I'm going to do is fix up that title. We need to manually add in returns for the title as `ggplot` does not wrap. I'll do this and show you the whole code in this last chunk.
+
+```{r}
+# Our plot colors
+maize_and_blue<-c("#FFCB05","#00274C","#FFCB05","#00274C")
+
+# Our tick line coordinates
+ticklines <- c(15000,12500,10000,7500,5000,2500,-2500,-5000,-7500,-10000,-12500,-15000)
+
+plt <- ggplot(grouped_data, aes(x = x_ageg5yr , 
+                                fill = interaction(addepev3,x_sex),
+                                y = population)) +
+  geom_bar(stat = "identity")
+
+# Add in our ticklines
+for (z in ticklines){
+  plt <- plt + geom_hline(yintercept = z,linetype='solid', col = 'white')
+}
+
+# Create the rest of the plot
+plt <- plt +
+  labs(title="Population Pyramid",
+         subtitle="Response to: Have you ever been told or have had a depressive disorder (including\ndepression, major depression, dysthymia, or minor depression)?",
+         caption="Data from the Behavioral Risk Factor Surveillance System (BRFSS), 2020",
+         y="Population",
+         x="Age (years)",
+         fill="Answer/Sex") +
+  scale_fill_manual(values=maize_and_blue) +
+  scale_y_continuous(labels = abs, 
+                     breaks=c(15000,10000,5000,-5000,-10000,-15000), 
+                     minor_breaks=c(12500,7500,2500,-2500,-7500,-12500)) + 
+  geom_hline(yintercept = 0,linetype='dashed', col = 'white') +
+  coord_flip() +
+  annotate("text", x = c(4.5,3.5), y = c(15500,15500), 
+              label = c("Yes","No"),
+              size=4) +
+  annotate("rect", 
+           xmin = c(4,3),
+           xmax = c(5,4),
+           ymin = c(12300,12300),
+           ymax = c(14300,14300),
+           alpha= 1, 
+           fill= maize_and_blue[1:2]) +
+  annotate("text", 
+           y = c(-14500,12500), 
+           x = c(12.5,12.5), 
+           label = c("Females", "Males"),
+           color="black",
+           size=3) + 
+  theme(
+    legend.position = "none",
+    panel.background = element_rect(fill = NA, colour = NA),
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor.y = element_blank()  
+  )
+
+# Show the image
+print(plt)
+
+# And save it to a file
+ggsave("output.png", plt, width=7, height=7, units="in")
+```
+
+Ok, look at that masterpiece!
+
+## Wrapup
+
+Now, I'm not the worlds best designer, but I think being able to show this kind of custom plot, a population pyramid, from the raw data is a pretty remarkable feat for us in just a course and a half. This plot quickly shows that this sample has more older women in it, and that women answer yes to the question of depression more frequently than men do throughout the range of data.
+
+Importantly, you've seen a very authentic workflow -- how I took this data and explored it, converting it to a graphic which might be useful for a stakeholder, and then theming it to match with a context I might present it in. I added more visual embellishments than I normally would, and this is something we'll discuss a bit in the last week of this course, but I wanted to introduce you to themes in R. At the end of the day, the kind of visual you produce will depend on who you are trying to communicate with -- a statistician, a decision maker, or the general public.

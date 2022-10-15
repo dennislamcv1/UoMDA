@@ -1,0 +1,191 @@
+# Factors
+## Let's Talk About Pets!
+I'm excited today to introduce you to a special guest of mine, Sauvignon Brooks, my twenty year old toy poodle. Now, Savi's probably not going to talk much, and likely will just have a nap here on the desk while I talk, but I think many of us have seen the powerful and positive effect of pets on our satisfaction of life. Throughout the early days of the covid pandemic, for instance, there were regular stories of animal shelters being heavily relied upon, as people's mobility and mental health were impacted. Pets provide a lot of challenges for society too -- safety and management of animals inside of a community, for instance, and this usually starts with pet licensing. I thought it would be interesting to take our first look at `ggplot` through some civic data provided by the city of Seattle, Washington. Many civic municipalities are making more and more of their data open to the public, sometimes as an effort to engage and crowdsource analyses of the data, and sometimes as a requirement of legislation such as the Freedom of Information Act. This isn't unique to the United States at all, municipalities and governments of all sizes around the world are beginning to provide this data to the public creating huge demand for those who understand and can manipulate public data. People just like you.
+
+Let's load the Seattle pet license data and take a look.
+
+```{r}
+# First thing I'm going to do is bring in the tidyverse and read our data
+library(tidyverse)
+data<-read.csv("./data/Seattle_Pet_Licenses.csv")
+data
+```
+
+Ok, we've got a lot of things going on in this seven variable dataframe that I think we'll be able to talk about! First, note this pattern where I just put the variables `data` as the last item in my code chunk. I like to do this just to render the data because it's easier to explore in the notebook than going up to the Environment pane. We get some built in support from RStudio and can see how many rows there are, the data types of the columns, and we can page through some of the data nicely. This isn't always ideal - if we knit this into a pdf, for instance, we're going to get a giant dump of data which goes on for pages because the pdf isn't interactive. But when working in the notebooks I find this really beneficial.
+
+Now, for our very first plot I want to show you a bar chart where we have zip codes across the bottom and the height of the bar are the number of registrations in each zip code. In data analytics we tend to talk about frequencies, which are just the relative rates at which observations belong to a particular category. In this case our categories are different zip codes. Now, we don't have frequencies computed here, but we're pretty handy with `dplyr` by now.
+
+```{r}
+# This kind of dplyr work is easy for us now, a litle group by, summarize, and
+# arrange
+data |> 
+  group_by(ZIP.Code) |> 
+  summarize(total=n()) |> 
+  arrange(desc(total)) 
+```
+
+Ok, we see we have 198 rows, so there are 198 zip codes, and these are represented as integer values. Some zip codes have thousands of pet registrations, and we see if we jump to the third page that we actually have `NA` represented as a zip code too, and it has 181 entries. Never forgot the `NA` values, they are always lurking in there! In this case, I'm actually going to leave them in in their own category.
+
+Now that we have our basic frequency data, we have to address the elephant in the room - zip codes are not integers. Sure, they can be represented as integers, and that's what happened here when we used `read.csv` to pull them into the dataframe. But we really want them to be categories. If we go back to some of our fundamental datatypes though, we don't have categories - we have numeric values, and we have character vectors, and so forth. Up until now this hasn't been a problem -- for instance, in the BRFSS data we looked at we have maybe four or five different categories for someone's response to a phone question on smoking, and we were able to just represent those categories as numbers when we were filtering and mutating columns. But that doesn't work with libraries like `ggplot`, so we need to introduce a new datatype in R, the `factor`.
+
+## Discrete vs. Continous Variables
+
+In data analytics we often classify variables into one of two groups, either *discrete* or *continuous*. In statistics lectures this is usually introduced by drawing on graph paper, where discrete variables are individual points representing possible values in the data, while continuous variables are lines or curves representing the range of values points can have. I want to refer to discrete variables though as **categories** instead, because that's more common when working with non-statisticians. Categories are sort of like labels on buckets - everything in the bucket is considered to be the same as far as the label is concerned. So if we're dealing with pet data we might put cats in one category, horses in a different category, and maybe dogs like Savi here in yet another category. Unlike points being drawn on graph paper, there isn't always an ordering for the buckets -- the buckets just exist to differentiate our options. 
+
+However, sometimes the context of our work does put an ordering to these categories. For instance, if we wanted to compare our buckets based on the average loyalty of each animal to their owner, we would put dogs first, then horses, and cats would be somewhere far down the line. In these instances the categories are considered ordinal categories, because they have an order or ranking to them. But it's important to note that they still aren't continuous -- there might not be any category between dogs and horses, for instance, and that's ok, we can still have this ranking of our categories.
+
+In R, these kinds of variables are called **factors** and they can either be ordered or not. They turn out to be really important when working with ggplot and the tidyverse.
+
+## Working with Factors
+
+Let's take a look at our original data again.
+
+```{r}
+data
+```
+
+We see that there is a species column here. That's a perfect example of a factor, but at the moment it's encoded as a character vector. If we check the list of unique entries in this vector we see that Seattle has licensed four different species of animals - Cats, Dogs, Goats, and Pigs. We can convert this column into a factor using the `as.factor()` function.
+
+```{r}
+# We will just overwrite the Species variables with a new one which is converted
+# to a factor
+data$Species <- as.factor(data$Species)
+data
+```
+
+Once we have converted a factor we see that the tibble rendering shows us that we have this `fctr` type for the column. Now, there's some computer science optimization work happening behind the scenes here, and while you don't have to know it in detail it helps to understand some of the basics. When we convert a character vector into a factor R actually converts it into an integer vector and creates a mapping between the numbers and the different categories -- we call these levels in R -- and adds it to the vector metadata. This is an example of how R handles objects, for those of you who might be familiar with or have heard of object oriented programming. We can see this if we use the `attributes()` function.
+
+```{r}
+attributes(data$Species)
+```
+
+The mapping to integer values is largely hidden from us in most of the tools we're going to use. We see that in the tibble interface we still see the level values, and if we look at just the head of the column, we'll see the level values of the first few items as well as a list of all of the levels in our factor.
+
+```{r}
+head(data$Species)
+```
+
+In this example there is no ordering to the factor, these are just four different buckets. But lets change this to an ordinal factor anyway, just to demonstrate.
+
+```{r}
+# I'm of course not a biologist or animal researcher, but if we wanted our factor
+# to encode the average intelligence of each animal I think I can probably make 
+# a reasonable estimate.
+data$Species <- factor(data$Species, levels = c("Cat","Goat","Pig","Dog"), ordered=TRUE)
+head(data$Species)
+```
+
+So we see now that the ordinal nature of this factor is encoded in the levels. This is cool, because it allows us to do some comparisons between items in the buckets.
+
+```{r}
+# Let's take the first cat and dog out of this dataset for instance, the tidyverse
+# way to grab some rows but not all is to use the slice function
+first_dog <- data |> filter(Species=="Dog") |> slice(1)
+
+# And we can do the same thing with the cat
+first_cat <- data |> filter(Species=="Cat") |> slice(1)
+
+# And then we can compare their intelligence by looking at the Species column
+# Is a dog of greater intelligence than a cat, in this scheme?
+first_dog$Species > first_cat$Species
+```
+
+So that's neat, and it's exactly as we expected it. Now, what I've shown you here is the base R factor object. But the tidyverse expands the functions we can use, and there is a whole package devoted to working with factors called `forcats`.
+
+## For...cats? (`forcats`)
+
+Now, I'm a bit disappointed because I assumed that there would be a more capable and intuitive library in the tidyverse called `fordogs`, but it seems like this one is the best we have. Nonetheless, some of the functions are quite powerful especially when working with `ggplot`, so let's take a look at those. 
+
+### `fct_recode`
+
+We'll start with `fct_recode()` which allows us to recode our factors.
+
+```{r}
+# Let's put Dogs and Cats in their own buckets, but everything else can go in
+# some "Other Critters" bucket. 
+data$Species <- data$Species |> fct_recode("Other Critters" = "Goat", "Other Critters" = "Pig")
+# Now we can see that the Goat and Pig buckets are collapsed, but the order stays true
+data
+```
+
+Be aware though, this has changed our underlying data, not just a mapping! We don't have pigs and goats anymore, just cats, dogs, and other critters. 
+
+### `fct_relevel`
+
+The most common thing we'll do with factors in `ggplot` is to rearrange their order for display. This gets a bit weird, since sometimes we want to order the data for display but the semantics of how the different categories relate to one another aren't really changing. This is where I disagree a bit with the way the tidyverse considers factors - remember, the tidyverse is intentionally **opinionated**, it aims to bring structure to our work through a whole set of packages which work together. So sometimes this means disagreeing but understanding the frame the tidyverse has set and either using it or not. Let's rearrange our levels.
+
+```{r}
+# We can use fct_relevel() to manually change the levels. For instance if we
+# wanted to represent this factor as the amount of trouble animals would normally
+# get in, we would probably want dogs to be the smallest, then other critters,
+# then cats
+data$Species <- data$Species |> fct_relevel( "Dog", "Other Critters", "Cat")
+head(data$Species)
+```
+
+More common than manually supplying the levels though, we're going to use some function to do this. In this data we might want to organize the data alphabetically, so we could just pass in a sorting function.
+
+```{r}
+# We can use fct_relevel() will also just apply some function, like sort, to
+# out list of levels
+data$Species <- data$Species |> fct_relevel(sort)
+print(head(data$Species))
+
+# Or maybe they are already sorted in some way, and we just want to reverse
+# that, we can use the rev() function to reverse the levels
+data$Species <- data$Species |> fct_relevel(rev)
+print(head(data$Species))
+```
+
+### `fct_reorder`
+
+In most of my work I actually have some other column of data that I want to use to set the factor ordering. For instance, we might want to calculate how many of each pet exists in our dataset and order by frequency. We can do this with `fct_reorder`, which allows us to reorder a factor by another variable
+
+```{r}
+# Let's create a new column in the dataset which is the frequency by which the
+# given animal appears
+data <- data |> 
+  group_by(Species) |> 
+  mutate(frequency=n())
+
+# Now we can change the ordering of the levels using fct_reorder(). fct_reorder
+# always uses ascending (smallest first) order, so we would expect Other Critters
+# to be at the top
+data$Species <- fct_reorder(data$Species, data$frequency)
+head(data$Species)
+```
+
+Somewhat perplexing to me is that `fct_reorder`, despite its whole purpose being to reorder factor levels, doesn't set the value as ordinal, and has no argument to do so. The default in the `forcats` package broadly is to assume if you wanted it to not be ordinal you would have said so. I find this confusing, and I expect that the `fordogs` package will improve on this. In the meantime we can toss a pipe in there if we want to make sure it stays ordinal.
+
+```{r}
+# Let's just send this in to factor() to set the order correctly
+data$Species <- fct_reorder(data$Species, data$frequency) |> factor(ordered=TRUE)
+head(data$Species)
+```
+
+### `fct_infreq()`
+
+It turns out that sorting by frequency is a super common need, and having to do this dplyr work where we `group_by()` and create a new column in our data frame is just a pain. `forcats` has a specific function to sort by frequency, call `fct_infreq()`.
+
+```{r}
+# We can use fct_infreq which will sort them by frequency, from *largest* to
+# smallest
+data$Species <- data$Species |> fct_infreq()
+head(data$Species)
+```
+
+Two important notes about this! First, `fct_infreq` sorts in the opposite order of `fct_reorder`, from largest to smallest instead of smallest to largest. I'm not sure why this is, it seems a bit confusing. Second, just like the `fct_reorder` function there is no change to whether the factor is marked and ordinal or not. However, in this case, we have a flag we can use to at least say we want it to be converted from an ordinal value into a categorical value.
+
+```{r}
+# We can use fct_infreq which will sort them by frequency, from *largest* to
+# smallest, and wipe out the ordering
+data$Species <- data$Species |> fct_infreq(ordered=FALSE)
+head(data$Species)
+```
+
+We could of course pipe this further to add the ordinal relationship back in.
+
+## Wrapup
+We didn't touch on factors in the first course, but if you go back you'll see that they are pretty intrinsic to our data throughout. The reason I left them for this course is that our plotting and charting library -- `ggploto` -- heavily relies upon factors to display our data. It does this by looking at the `levels` attribute which is set when you create a factor with the `factor()` function. Now, because we are likely to want to reorder and collapse factors together for display, `ggplot` will largely assume that the factor is in the order you want to display it in, and will not consider the specific ordinal relationship indicated in the `levels` attribute. This is a bit of a surprising design choice given that ordering our data for display is an ordinal categorical task, so you should be aware in case this is encoded in the base data type. Why would someone encode this? Well, it's often useful for statistical modeling, a topic we won't touch on much in this course.
+
+Ok, now that we understand the five layers of the `ggplot` grammar of graphics, and we understand what `factors` are in R, I think we're ready to start building some plots.

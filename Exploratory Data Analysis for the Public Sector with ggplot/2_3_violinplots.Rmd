@@ -1,0 +1,141 @@
+# Violin Plots
+
+## Plotting Distribution Functions
+
+We saw how we could plot some summary statistics of distributions, but last week we actually saw how we could plot the distributions themselves with histograms and kernel density estimation (KDE) plots. We can apply this same approach to comparing multiple distributions in a way very similar to boxplots, and the result is something called a violin plot. I think a quick demonstration will make this really clear, so lets get back to fishing.
+
+```{r}
+library("tidyverse")
+library("tidylog")
+data <- read_csv("clean_fishing.csv")
+
+# I'm going to start by bringing in our dataset and grouping it by year and mode
+# so we can get a sense of the distributions through boxplots. I want to be able
+# to see, on a yearly basis, what does the distribution of fishing mode look
+# like when it comes to total amount of effort and angler trips. I'll start
+# just by looking at the effort levels
+data |> 
+  group_by(year, mode) |>
+  summarise(total_effort = sum(effort),
+            total_trips = sum(angtrips)) |>
+  ggplot(aes(x = mode , y = total_effort, fill = mode)) +
+  geom_boxplot()
+```
+Ok, something isn't right. Looks like our data has some different ways it was coded for a given mode, either in all caps or in title case, where each word is capitalized. We need to clean this up in our data cleaning. Now, I actually haven't shown you much about cleaning up string values in R, so this seems like a perfect opportunity! Many of the functions you might want to use are actually included in base R. For instance, `nchar()` will count how many characters are in a string. Another handy function is `strsplit()`, which will allow you to split a string based on some value, and return the parts of it. This is handy when you want to separate out like a username from the rest of an email address. We've seen `str_c()` already, it concatenates string values together, and `paste()` is very similar but it works on any object in R and converts it into a string format.
+
+For this work though, I think we want to have either use `tolower()` or `toupper()` which, you guessed it, converts a string value into a lower or upper value.
+
+```{r}
+# We can do a quick mutation on the mode
+data <- data |>
+  mutate(mode=tolower(mode))
+
+# Now let's check out that basic boxplot
+data |> 
+  group_by(year, mode) |>
+  summarise(total_effort = sum(effort),
+            total_trips = sum(angtrips)) |>
+  ggplot(aes(x = mode , y = total_effort, fill = mode)) +
+  geom_boxplot()
+```
+Ok, so we see that by far boat fishing is the most common. This makes a lot of sense, the great lakes are huge and never freeze over, so you can fish on them with a boat basically whenever you want to, while the rest of the modes have limitations and we would expect to see these limitations come up in any given month skewing the number of hours anglers could put in. Let's get rid of boat fishing to make this more interesting as a demonstration. Also, let's change the tick labels on the y axis - at the moment they are in scientific notation which is not very friendly for reading.
+
+```{r}
+# First we will filter out boat and group
+data |> 
+  filter(mode != "boat") |>
+  group_by(year, mode) |>
+  # I'm going to keep effort and trips in here even though we're only looking
+  # at the one
+  summarise(total_effort = sum(effort),
+            total_trips = sum(angtrips)) |>
+  # Now lets plot. We can change the look of the y tick values by scaling the
+  # y axis. We can set the labels argument to a variety of values
+  ggplot(aes(x = mode , y = total_effort, fill = mode)) +
+  geom_boxplot() +
+  scale_y_continuous(labels=scales::label_comma())
+```
+Ok, great, we see our boxplots and it looks like we could reasonably compare them!
+
+But let's unpack this scaling function I just dropped in there! What is up with this double colon (`::`) syntax? Well, up until now we've been bringing in libraries using the `library` function, and then we can reference all of the functions in that library. Do you remember how this works? We talked about it early on in the first course of this specialization, but now that we've got some R skills behind us lets revisit it.
+
+## A Brief reminder of R's `library` and `environment`
+
+When we use the `library` function it identifies an installed library and runs that associate R code. It does so in a new `environment`, so the functions related to that library don't clutter up the global environment that we're working in. If you hit the drop down for the global environment in the environment tab in the upper right of R Studio, you'll see a number of the packages which were run when we imported the tidyverse. When we go to use a function, say `geom_boxplot()`, R first looks in our current environment to see if the function exists. If it doesn't, it walks through that stack of environments from our imported libraries to find the function we're looking for. So, what if R finds two functions with the same name, but in different libraries? Well, it doesn't, the minute it finds it one, it returns it. That function masks the others, and we've already seen that happen when we imported the `tidylog` library. This library first imports the tidyverse functions, then intentionally masks them so that it can add some useful wrapper statistics about the number of columns and rows which were modified. Like this:
+
+```{r}
+# tidylog in action
+p <- data |> filter(year<2010)
+```
+
+Here, `tidylog` masked the `filter` function of `dplyr` and now gives us some context of what has changed. So, what's this got to do with the double colon (`::`) syntax? Well, sometimes we want to tell R the exact library we want to use for a function. Maybe we aren't interested in using the `tidylog` masked version. We can direct R to go to the environment where it can find the function we are specifically interested in. This is often called namespacing or disambiguation.
+
+```{r}
+# Let's use the dplyr filter(), not the tidylog one!
+p <- data |> dplyr::filter(year<2010)
+```
+
+See? Nothing from the `tidylog` package in our output, because we skipped right to the function we wanted. Ok, we don't just have to use this to disambiguate when we have multiple packages with similar functions installed. In the demonstration I gave I pointed directly to the function which exists within the `scales` package. Go check out the drop down for the global environment -- do you see the scales package anywhere?
+
+```{r}
+# You shouldn't! Because we didn't actually import it. We just told R to go look
+# up that one function. But, if do import the package with the library() 
+# function...
+library("scales")
+```
+
+Now you'll see it in the drop down. It's the most recently imported package. We also get this nice warning that it masked a couple of functions, which is fine in this case.
+
+So, why am I showing you this? Because one day you're going to want to use a function that is masked by another function, and now you know how to! On top of that, lots of examples out there, when they use a single function from a big package, will just show it being used this way. So now you've conversant in this aspect of the syntax of R, and this will take you from being able to copy and paste R examples to get what you want in the moment, to actually understanding the language and how it works. R Studio makes it easier for us to understand, so I wanted to demystify the process a bit for you.
+
+## Scales
+
+So, what is this package `scales` that we've just imported? Well, you can check it out by hitting up the docs with `?scales`, but in short it's a helper function that `ggplot` uses to change labels on aesthetics in meaningful ways for us humans. In this case we wanted to add in a comma every three characters, and that's what `label_comma()` does for us. We have various other options, for instance `label_percent()` for showing percentages, or `label_date()` for changing how dates showed up -- we could have used that in one of the previous lectures where I used `strtim` instead!
+
+Actually, this would be a great way for you to put your new knowledge to work. Why not go back to to the lecture on trendlines from week 2 and change the date appearance by using this new `scales` package!?
+
+## Back to Violin Plots
+
+With that aside covered, lets go back to this boxplot and see if we can compare it to a violin plot. The violin plot aims to show us the same thing - an understanding of the spread and density of our data - but to do so without using the five number summary. Let's `cowplot` this up and see how it looks in comparison to the boxplot.
+
+```{r}
+library(cowplot)
+# First lets group some data and store this in a new tibble
+groups <- data |> 
+  filter(mode != "boat") |>
+  group_by(year, mode) |>
+  summarise(total_effort = sum(effort),
+            total_trips = sum(angtrips))
+
+# Now lets make our two plots. Since I'm going to cowplot them I'm going to
+# save them as variables. Note that I don't have to say scales::label_comma()
+# anymore because we just imported scales through the library call up a couple
+# of code chunks! So I can use just label_comma() from now on! :)
+p1 <- groups |>
+  ggplot(aes(x = mode , y = total_effort, fill = mode)) +
+  geom_boxplot() +
+  scale_y_continuous(labels=label_comma()) +
+  theme(legend.position="bottom")
+
+# You'll notice I'm changing the legend position here too, for clarity in our
+# comparison
+p2 <- groups |>
+  ggplot(aes(x = mode , y = total_effort, fill = mode)) +
+  geom_violin() +
+  scale_y_continuous(labels=label_comma()) +
+  theme(legend.position="bottom")
+
+plot_grid(p1, p2)
+```
+Ok, that's a boxplot on the left and a violin plot on the right. Immediately we can see that the violin plots show much more nuance to the distribution of data. Also, there's no problem stacking these with dotplots as well!
+
+```{r}
+p1<-p1+geom_dotplot(binaxis='y', stackdir='center', dotsize=0.5)
+p2<-p2+geom_dotplot(binaxis='y', stackdir='center', dotsize=0.5)
+plot_grid(p1,p2)
+```
+You can see that the dotplot layer is unaffected by the boxplot or violinplot as they both have the same scaling. But you may also notice the violinplot distribution function tends to match the dotplot a little bit more, making it unclear whether the dotplot is actually needed at all.
+
+## Wrapup
+
+Violin plots are a powerful visualization technique to understand the distribution of a series of data you might want to compare. While boxplots are still used frequently, the violin plot has grown in popularity as it captures more nuance to the data. The use of the dotplot in addition to these two methods is trivial for us to do in `ggplot` thanks to the layered nature of the system. As your amount of data grows the dotplot becomes less useful, but it's particularly valuable in situations like this where both the boxplot and the violin plot obscure whether there were actually any observations at a given level. For instance, in the last example if you find the `total_effort` of about 375,000 you'll see that both the boxplot and violin plot imply some density to our distribution here, but in actual fact there were no observations with that number. Dotplots are a great way to add more concrete understanding when you're dealing with small amounts of data.

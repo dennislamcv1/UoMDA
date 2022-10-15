@@ -1,0 +1,186 @@
+# Distributions and Histograms
+
+The next topic we should tackle is how to explore and understand distributions of data. This turns out to have a lot of nuance to it, so I wanted to start with a bit of a primer on what distributions are and how we can use them in the R language. At a high level, a distribution is just a set of frequency observations, so we've actually already seen that with some of the population and pet data we've looked at already. Distributions are very common in public policy - population age distributions, for instance, are used to understand how much of the workforce is likely to continue working, while wealth distributions can be useful to understand social equity issues and the effects of taxation or other initiatives.
+
+## A Distribution Primer
+
+There are a few central concepts to understanding distributions I'd like to touch on, and if these seem unfamiliar to you I'd like to encourage you to explore some introductory statistics courses here on the Coursera platform. First up is the notion of a **population**. A population is the set of all possible observations we are interested in. In policy this often is the set of all people, but we can also investigate populations of fish, trees, or other diverse groups of things. In the statistics sense a population doesn't have to be of living things -- we could be interested in the population of cars in the world, for instance. However, in public policy populations are often people, for instance the population of US citizens might be just above 300 million individuals.
+
+The next concept is a **sample**, and that is the selection of a portion of that population which we will analyze. The sample is often much much smaller than the whole population -- we saw in the last course that the annual census samples 1% of the american population, or about 3 and a half million people, every year. The sample is the group we are going to observe and quantify. We will then engage in visual and numerical analysis of the sample, with the idea that what we find will be generalization to the whole population we are interested in. Whether the sample is representative of the population or not is critical, and is a major concern for equity in social issues or strategy as it comes to policy. There are various techniques to deal with a lack of representation - stratified sampling processes, for instance, aims to change how to collect data in order to increase representation, while re-weighting of variables as is done in the BRFSS data we looked at aims to improve representation after the data has been collected. You'll see some more discussion of this issue, including from some of my own research, in the last course in this series on the ethics and politics of data. For the moment, we'll assume that our sampling method is reflective of the population, so our sample is just a "mini" version of our population.
+
+Samples are finite. Sometimes they are finite and big, so we could consider them to be continuous, but often they are finite and small, where we become painfully aware of how discrete they are. In statistics we often want to represent samples using a mathematical function -- just like we saw in the last lecture it is possible that this function might be linear, but often it has a more complex or nuanced shape to it. The shape of the function is controlled or described by **parameters**, and we often want to try and analyze our sample data to generate these parameters so we can estimate the mathematical function.
+
+So, why would we both to estimate this mathematical function? Well, first, there are a lot of different statistical methods we can use but only if we can place some limits on the distribution. But secondly, we often want to forecast changes that might happen in our population, and to do so we need a language to describe how those changes might come about, and for that we'll use statistical modeling. You'll get to hear more about different statistical modeling activties in the next course when we talk about experimental analysis.
+
+The beauty of learning statistics in the modern era is that we can simulate data and functions, or even look at real data, instead of having to go through mathematical theorems and proofs. And a great place for us to do that is here, in R, and in this lecture we're going to do that by looking at some of the behavioral risk factor surveillance system data we used in the previous course.
+
+## Visualizing Distributions
+
+### Getting our Data Ready
+
+Let's load in that BRFSS data.
+
+```{r}
+# Remember this data requires us to use the foreign package, because it was
+# exported in SAS format instead of a CSV
+library("tidyverse")
+library("janitor")
+library("foreign")
+data <- read.xport("LLCP2020.XPT", fill = NA) |> 
+  clean_names()
+```
+
+I want to clean our data a bit. This is a huge dataset, but some of the characteristics I'm interested in are:
+
+1.  the age of the individual (AGEG5YR), which in this dataset is expressed as ranges of ages, so it's an ordinal value
+2.  the individuals' race or ethnicity category (RACE), in the United States a very specific set of race and ethnicity categories are used for most federal and state demographics and one particular thing to note is that in this dataset hispanic individuals are coded separately from others, though in the population it is not uncommon for someone to identify as a white hispanic, or black hispanic, for instance 
+3. the sex of the individual, in this case a binary value (SEX) 
+4. the individuals' height in meters (HTM4) and weight in kilograms (WTKG3), and both of these are ranges of values. Now the dataset has inches and pounds in it as well, but given that this is a global classroom I'm going to stick with meters and kilograms because base ten numbers are more clear for most analyses - we'll see an interesting phenomena in our data from this
+5. the respondents household income in dollars (INCOME2), and again here we have bands of responses. Note that the bands aren't all the same size in this data set.
+
+I'm going to clean our data by filtering on these column values, then convert things to factors as appropriate.
+
+```{r}
+# There is a handy dplyr function called between() which takes a variable and
+# two numeric values and creates a boolean mask where elements are TRUE if they
+# are between those two values inclusively. This is handy for this kind of 
+# cleanup. I'm also going to bring in a package called tidylog, it's going to
+# tell us what data has been dropped from our dataset and why. This is very
+# handy for auditing the data and ensuring you are having the intended effect
+# with your data cleaning
+library(tidylog)
+
+data <- data |>
+  filter(between(x_race,1,8)) |>
+  filter(between(income2,1,8)) |>
+  filter(between(wtkg3,2300,29500)) |>
+  filter(between(htm4,91,244)) |>
+  filter(between(x_sex,1,2)) |>
+  filter(between(x_ageg5yr,1,13))
+```
+
+So that's pretty interesting -- we can see that `tidylog` masks the functions in `dplyr` and then provides us some statistics on what happened when we cleaned our dataset! We can see in the console that we only lost 2% of our dataset because of our filtering on race, but that by considering income we lose almost 20% of our dataset! This is really significant when it comes to potentially biasing the results. For instance, if the reason people choose not to report their income is because it is really high and they are worried they would seem to be bragging, then we would lose representation of people with high incomes. And it's quite likely that variables like income are highly correlated with other variables - for instance age, since older individuals have a greater chance of having been in the workforce longer. Being able to report on the effects of these cleaning methods is important in informing good policy.
+
+```{r}
+# Lets convert those factors too. First some data from the codebook
+x_race_levels=c("White", "Black", "Amer. Ind. Alaskan Nat.", "Asian", "Native Haw. or Pac. Isl.", "Other", "Multiracial", "Hispanic")
+income2_levels=c("< $10,000", "< $15,000", "< 20,000", "< 25,000", "< 35,000", "< 50,000", "< 75,000", ">= $75,000")
+x_sex_levels=c("Male","Female")
+x_ageg5yr_levels=c("18-24","25-29","30-34","35-39","40-44","45-49","50-54","55-59","60-64","65-69","70-74","75-79","80+")
+
+# Now some data manipulation
+data <- data |> mutate(
+  x_sex=as_factor(x_sex), 
+  x_race=as_factor(x_race),
+  x_ageg5yr=as_factor(x_ageg5yr),
+  income2=as_factor(income2))
+
+# And now overwrite the coded values with useful strings
+levels(data$x_race) <- x_race_levels
+levels(data$x_sex) <- x_sex_levels
+levels(data$income2) <- income2_levels
+levels(data$x_ageg5yr) <- x_ageg5yr_levels
+```
+
+### Visualizing with Histograms
+
+Now that our data is loaded and cleaned, I think we can try and visualize a distribution. The main technique used for visualizing distributions in samples is a histogram, and this maps a continuous variable along the X axis with a frequency along the Y axis. The visual representation is actually a bar chart -- the histogram converts the continuous variable into a series of ordinal categories through "binning". Why do we do it this way? Well, some continuous variables, like weight, might be highly varied and thus for a given sample we might not be able to see any trend in prevalence. For instance, maybe there is one person in our dataset with exact 100.02 kilograms, and another at 100 kilograms even and maybe only one at 100.03 kilograms. The histogram essentially rounds these numbers into buckets, but allows us to control these buckets -- which we call bins -- with a bit more flexibility. Let's take a look.
+
+```{r}
+# We're going to look at the height in centimeters here, so that's htm4
+data |> ggplot(aes(x=htm4)) + 
+  geom_histogram()
+```
+
+Ok, here's our first histogram! In this case we're looking at the height in centimeters of our sample. We see on the console that. underneath. `ggpolot` has used a binning function with 30 bins as a value. By far the bulk of people in our data have a height in the range of 150 to 180 centimeters -- this is roughly between five and six feet tall, so it seems reasonable. There is this little sliver of space though around the 180 centimeter mark where we have a much smaller number of people. And this demonstrates one of the biggest challenges of the histogram -- your choice of bin widths changes what the chart looks like, and can sometimes mislead. Sometimes we call this the comb effect, because the gaps between bars can look like the teeth of a comb.
+
+Let's try a few different bin sizes.
+
+```{r}
+# 1 cm, which is just under half an inch
+data |> ggplot(aes(x=htm4)) + geom_histogram(binwidth = 1)
+# 5 cm, which is roughly 2 inches
+data |> ggplot(aes(x=htm4)) + geom_histogram(binwidth = 5)
+# 10cm, which is roughly 4 inches
+data |> ggplot(aes(x=htm4)) + geom_histogram(binwidth = 10)
+# 30cm, which is roughly a foot, or one standard ruler
+data |> ggplot(aes(x=htm4)) + geom_histogram(binwidth = 30)
+
+```
+
+Ok, this is nice! We see that R Studio is going to show us these four plots in sequence. The first one shows the combs tooth effect, there are literally a bunch of values which no one every reports. Actually, if we go into the data and look we'll see that for a height of 160 centimeters there are nearly 20,000 observations, but for a height of 161 centimeters there are only 19! How can this be? Well, in part it depends on how respondents answered the question, and there is lots of interesting behavioral psychology at play here. If someone responded that they are 5' 2", that's 160 centimeters. But if they said they are 5' 3" that rounds to 163 centimeters. So there's only a few people in this sample who reporting their height as 5' 2" and a third, for instance, or who are reporting their height directly in centimeters.
+
+As we increase the bin size, we see different kinds of patterns, and we get a more general sense of what the data looks like. But when our bins get too big, like when we are measuring to the size of a foot in the last chart, we start to loose granularity. In short, to estimate the distribution of data with a histogram you have to be very aware of the bin size and both experiment and consider it carefully.
+
+### Estimating the Distribution Function
+
+A common desire is to try and smooth out the histogram by estimating a function for the data. The normal way to do this is to create a **kernel density estimate** and visualize it as a line. Unlike a histogram, kernel density estimations are smooth and continuous, and can give some insight into data when we have relatively small samples. `ggplot` has some built in functions to create a kernel density estimate as a new layer, and we can access these using the `geom_density` geometry function (which calls the `stat_density` mechanism to create the function).
+
+```{r}
+# We can use a nearly identical ggplot to take a look at the kernel density
+# estimation for this data
+data |> ggplot(aes(x=htm4)) + 
+  geom_density()
+```
+
+Ok, wow, we can see the spikes here around the reporting numbers! You'll notice that the x axis is the same as in the histogram, our kilograms, but that the y axis is very different. A density estimate function represents the proportion or amount of data as a ratio to the whole dataset at any given point along the x axis. So while a histogram y axis was the number of observations (people) in each bin, the density value indicates the ratio -- as a number between 0 and 1 -- of the data at any given x point. A density estimation can be thought of as a probability function -- if you took all of the data underneath the density estimate and summed it all up it would be 1. The inference one can make from the density estimation is with respect to ratios of the population, while the inference you can make with a histogram is in exact counts of observations.
+
+### Showing the Histogram and Density Functions Together
+
+It's pretty common to plot both the density estimation function and the histogram together. But, in `ggplot`, all layers **must** have the same scale. So we have to convert one of these two -- the histogram in counts of observations or the density plot in ratios between `0` and `1` -- to the other. But this isn't straight forward to do, as the histogram bar has a width to it, while the density function provides point estimates. So creating this graphic means we have to write a function to translate from the histogram to the density or the reverse, because the layers must have the same scale.
+
+An alternative is to try and show the two plots side by side. `ggplot` doesn't do this for us, but we can use a library by Claus O. Wilke called cowplot to extend the functions of `ggplot`. Claus wrote a book, the __Fundamentals of Data Visualization__, where he explains the cowplot library in more detail (C. O. W. being his initials!). This book is interesting because instead of just focusing on the mechanics of information visualization libraries, he also delves into the topic of our last week of this course - what makes a clear information visual.
+
+Let's use a bit of cowplot to update this visual, and make it a bit more compelling for decision makers too.
+
+```{r}
+# Cowplot should be install for you in Coursera, so you can just import it here
+library(cowplot)
+
+# The main function we're going to use cowplot for is plot_grid(), which
+# allows us to arrange plots in a grid. In this example I'm going to use four
+# plots, I'll plot the histograms on the left hand side using three different
+# bin sizes, one on each row, then I'll put a bigger density plot on the right
+# hand side and have it span across all three rows and take up two thirds of the
+# horizontal space.
+
+# Here are the histograms
+plot1 <- data |> ggplot(aes(x=htm4))+ 
+  geom_histogram() +
+  labs(x="Height in cm",
+       y="# Obs.",
+       title="bins=30")
+
+plot2 <- data |> ggplot(aes(x=htm4))+ 
+  geom_histogram(bins=50) +
+  labs(x="Height in cm",
+       y="# Obs.",
+       title="bins=50")
+
+plot3 <- data |> ggplot(aes(x=htm4))+ 
+  geom_histogram(bins=15) +
+  labs(x="Height in cm",
+       y="# Obs.",
+       title="bins=15")
+
+# And here is our KDE plot
+plot4 <- data |> ggplot(aes(x=htm4)) +
+  geom_density() +
+  labs(x="Height in cm",
+       y="Proportion of dataset",
+       title="KDE of BRFSS height data")
+
+# Now I can make a plot_grid of the three histograms, and pass it in as the first
+# plot to a plot_grid of the histograms + KDE.
+plot_grid(plot_grid(plot1, 
+                    plot2,
+                    plot3, 
+                    nrow=3), 
+          plot4, 
+          rel_widths = c(1, 2))
+```
+
+Not bad! There are a few ways we could improve that, perhaps by having a common y axis label for the histograms, or changing some of the text styling. But all in all it gives both a glance at the histograms to give a sense of the density of the population, as well as shows the KDE with these "spikey" pieces indicating the variable isn't actually as continuous and smooth as the histograms might suggest.
+
+## Wrapup
+In this lecture I've introduced to you the notion of histograms and kernel density estimations. The use of histograms to understand population characteristics is significant. You might have noticed that we cleaned a bunch of data here but only looked at the height! I think a good assignment for this week would be to have you explore making histograms of some of the characteristics, and maybe build a visual a bit more compelling than the simple one I've built here.

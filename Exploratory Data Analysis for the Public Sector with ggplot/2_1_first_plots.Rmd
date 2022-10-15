@@ -1,0 +1,175 @@
+# Our First ggplot Plot
+
+## Using ggplot
+With our feet grounded both in the theory of the layered grammar of graphics, and a bit of hands-on practice with `forcats`, it's time to dive into making some beautiful visuals! Let's load the Seattle pet license data and take a look - you'll notice that here I'm going to use our new found knowledge of factors right from the beginning.
+
+```{r}
+# First thing I'm going to do is bring in the tidyverse
+library(tidyverse)
+
+# Now we'll read in our data and set our column types as appropriate. While in
+# a previous lecture I used the base R read.csv, in this lecture I'm going to
+# use the tidyverse read_csv. A subtle but important difference as this will
+# change some of our column names and automatically create a tibble for us.
+data<-read_csv("./data/Seattle_Pet_Licenses.csv", col_types="cccffff")
+data
+```
+
+So I did a bit of magic there with the `col_types` parameter. I showed you previously how you could indicate that a specific column should have a specific type, but `read_csv` actually has the handy ability for you to just list all of the types you want your columns to be in the order they will be found. So the string `cccffff` is telling `read_csv` that I want the first three columns to be character vectors, and I want the next four to be factors. You can check out the docs for more information on possible values you can put in here. You might also notice that the column names are "cleaned up", and while they have spaces in them they don't have periods. So this will change a bit of our code going forward, and by now you know how to scour the docs for more details.
+
+A few lectures ago I set our target goal for this week: to show a bar chart where we have zip codes across the bottom and the height of the bar are the number of registrations in each zip code. We then started to try and clean and summarize our data using `dplyr`, and we know we have 198 different zip codes and some have thousands of registrations in them. So let's create our first one layer visual. Reflecting on the layered grammar of graphics, our *data* is the 198 observation tibble, our mappings for *aesthetics* are the ZIP Codes variable on the X axis. Our Y value is the height of each bar in the chart. The next element of our grammar, the *geometry object* is a bit counter intuitive at first. We're not making a bar chart it turns out, but a column chart - we'll get to the difference between these in a bit. Finally, our *statistics* and *position* elements really aren't used here. We're going to use whatever statistics are in the data - we're not going to apply a transformation as such - and we'll use whatever positions R comes up with. But when we create a layer we still have to provide these values. We use the word __identity__ to mean that these two items will not change the rendering of the layer in anyway.
+
+```{r}
+# The first thing we're going to do is calculate the frequencies for each zip
+# code factor and add that to our data. I'll show you later that we don't
+# actually need this step, but I think it's more clear with it right now.
+freq <- data |> 
+  # We are going to have to have our column names in back ticks (`) here,
+  # because they have spaces in them. This is one of the side effects of
+  # switching to read_csv from read.csv, and I wanted you to be aware of how
+  # to handle variables which have spaces in the name.
+  group_by(`ZIP Code`) |> 
+  summarize(total=n())
+
+# To start a plot, we use the ggplot() function. This function is our base layer
+# and we're going to start with it being empty. We then add layers to the plot
+# using the plus (+) operator. This looks a bit like piping but what it does is
+# build up a stack of layers which ggplot is going to render. After the base
+# layer we just create new layers using the layer() function
+ggplot() +
+  layer(data=freq, 
+        mapping=aes(x=`ZIP Code`, y=total), 
+        geom='col', 
+        stat='identity', 
+        position='identity')
+```
+
+Nice, our first visualization! The zip code is being mapped to the x axis while the totals are the heights of the bar. Look back at that `layer()` function and we can break it down. We know there are five elements to each layer, the data (which is the `freq` in our case), our aesthetic mappings where we map the x and y axes, and the geometry - in this case the geometry is of type `col` for a column plot, and the statistics and position arguments.
+
+What we can see at a glance is that there are lots of zip codes with very few pet registrations, and then a few which have a lot of registrations. I think we can play around with our zip code factor and do some merging to make this chart a bit more informative. For instance, why don't we collapse the zip codes which have under 1000 registrations into one factor, then look at what we have.
+
+```{r}
+# There are many different ways to do this! I'm going to show you one here that
+# might not be the most efficient but it's easy(ish) to read and uses our dplyr
+# skills and introduces you to something new...
+
+# First we use dplyr to get a list of the factors we want to relabel
+to_recode<-freq |> filter(total<1000) |> select(`ZIP Code`) |> unlist()
+
+# Careful! Notice at the end I'm converting the tibble returned by select() into
+# a vector! This is important because of the comparison I'm going to do next.
+
+# Now I'm going to just do a mutate and a case_when, and overwrite with strings
+freq <- freq |> 
+  mutate(`ZIP Code` = case_when(`ZIP Code` %in% to_recode ~ "small", 
+                                TRUE ~ as.character(`ZIP Code`)))
+
+# This %in% operator I used looks scary, but it's not! All it does is check if
+# the item on the left hand side exists within the vector on the right hand 
+# side. This is called set membership, and you'll use it a lot! In this case I
+# want to search for the zip code column value in a vector which is why I used
+# the unlist() function to create to_recode.
+
+# You'll notice that for the catch all statement I returned the value of the
+# ZIP Code as a character. Remember that case_when cases must all return the
+# same datatype. So here I'm making everything into a character vector because I
+# want this new string value called "small"
+
+# Now if we want to we can turn this column back into a factor
+freq$`ZIP Code` <- as_factor(freq$`ZIP Code`)
+
+# Ok, we want to merge all factors which are of this new value 'small' to
+# calculate their combined frequency, so we'll use a little dplyr here. Remember
+# that within a group_by we can reference the group of data using the cur_data()
+# helper function
+freq <- freq |> group_by(`ZIP Code`) |> summarize(total=sum(cur_data()))
+
+# And now we plot it!
+ggplot() +
+  layer(data=freq, 
+        mapping=aes(x=`ZIP Code`, y=total), 
+        geom='col', 
+        stat='identity', 
+        position='identity')
+```
+
+## A little more Aesthetic
+Well, the image is somewhat easier to read, but it's still not ideal. Let's play with some factor reordering. We can start by sorting by the total number of animals in each level of the factor.
+
+```{r}
+# reorder by the total
+freq$`ZIP Code`<-fct_reorder(freq$`ZIP Code`,freq$total)
+# And Plot!
+ggplot() +
+  layer(data=freq, 
+        mapping=aes(x=`ZIP Code`, y=total), 
+        geom='col', 
+        stat='identity', 
+        position='identity')
+```
+
+Let's add another category to this data. For instance, we might want to identify this "catch all" small category as special - not just another zip code - so the reader doesn't get confused. Then we might want to split the other zip codes into two, those with greater than 2,000 animals in them, and those with less than 2,000 animals in them. We can do this in our dataframe with a couple of mutates to create a new column, then assign the fill color aesthetic to render that.
+
+```{r}
+# I'm going to create a new column which is either a small, medium or large.
+# Since we have already grouped our smalls into a group I'll just check that
+# existing zip value. Then I'll check total to determine the medium group. And
+# at the end I'll set everything else to large.
+freq$scope<- freq |> mutate(scope=case_when(as.character(`ZIP Code`)=='small' ~ 'small',
+                                            total < 2000 ~ 'medium',
+                                            TRUE ~ 'large')) |> 
+  select(scope) |>
+  unlist() |>
+  as_factor()
+
+# And Plot! The aes() name of fill tells ggplot to vary this fill color
+ggplot() +
+  layer(data=freq, 
+        mapping=aes(x=`ZIP Code`, 
+                    y=total,
+                    fill=scope), 
+        geom='col', 
+        stat='identity', 
+        position='identity')
+```
+Ok, so even though our bars are in order of size, we have correctly identified that this one category is just all of those small zip codes together. It might bug you a bit to see it all the way to the right of the graph then - I know it bugs me! All we have to do is change the factor ordering, that is, the levels of the **ZIP Code** factor. `ggplot` uses these to sort data. Let's first check what that ordering is.
+
+```{r}
+levels(freq$`ZIP Code`)
+```
+
+We have seen that there are lots of ways we can change the `levels()` with `fct_relevel`, but here is another handy way to use it: the `fct_relevel` allows you to specific a specific level and a place in the list of levels that this level should go, essentially allowing you to to move a level to an arbitrary position.
+
+```{r}
+# If we set the value of after to 0, it will bring the small factor to the
+# front of the list.
+freq$`ZIP Code`<-fct_relevel(freq$`ZIP Code`, "small", after = 0)
+# And Plot!
+ggplot() +
+  layer(data=freq, 
+        mapping=aes(x=`ZIP Code`, 
+                    y=total,
+                    fill=scope), 
+        geom='col', 
+        stat='identity', 
+        position='identity')
+```
+We should feel good about this first chart! We've got three data to aesthetic mappings, we've had `ggplot` do most of the work for us in rendering the data and we've seen how we can organize the data to get across a given message.
+
+## We don't really use `layer`
+
+Now, I've done a lot of copy and paste today, and written a lot of code. If you've read up at all about `ggplot` this `layer` command I've been using might seem a little new, despite it being fundamental to the `ggplot` theoretical grounding. It turns out that in practice we often do not use the `layer` command, instead we use helper functions that being with `geom_`. The problem with these is that they contain a bit of magic sometimes, and that can be tough to explain to beginners, and leads to just copy and pasting and not really getting a sense of how this layered grammar of graphics works. Each of your layers has the five elements we have talked about - data, aesthetics, geometries, statistics, and position modifiers. But we don't have to use `layer` to do that rendering and specify them all each time. For instance, we can abbreviate the creation of a column plot by using `geom_col`.
+
+```{r}
+# By default `geom_col` will set the geometry, statistics, and positions for
+# us, so we can actually write it all on one line.
+ggplot() + geom_col(data=freq, mapping=aes(x=`ZIP Code`, y=total, fill=scope)) 
+```        
+Despite this being much simplier to write, it hides from you some of what is happening underneath. It's important to know how `layers` work, because there are some geometries you'll want to use which don't have a helper function.
+
+## Wrapup
+Ok, we made our first plot today, a column plot. I showed you how we can sort our factors to change how ggplot renders the column list for us, and how we can map three different aesthetic values to meaningful translations in the chart - the x axis, the y axis, and a color for the bar. We didn't talk about labels -- either for the axes or for the legend -- and `ggplot` automatically inferred this from our factor levels.
+
+We also saw a bit more of the inner workings of R. First, that for `read_csv` we can set column datatypes in a fairly straightforward manner right as we load our data. In practice you might find you don't load factors right off the bat, and that's ok - there are other data types out there, like dates and times, which we'll be interested in looking at in a future lecture.
+
+In addition, we talked about the importance of converting our tibbles to vectors when we want to work with them. This might not seem intuitive at first but you'll begin to get the hang of it, just keep an eye up on that environment pane to get insight into the data structures you're using. Finally, I intentionally showed you this painful syntax using back ticks for when column names have special characters, like spaces, in them. Frankly, I never work with data in this format, and I clean the column names right when I load it, but I wanted you to be aware of this. I'll introduce you to a package in a future lecture which helps with part of the data cleaning.

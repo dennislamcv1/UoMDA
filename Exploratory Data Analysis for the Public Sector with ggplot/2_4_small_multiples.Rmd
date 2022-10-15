@@ -1,0 +1,168 @@
+# Small Multiples
+
+One of the techniques which Edward Tufte introduces in his book "The Visual Display of Quantitative Information" - which is my personal favorite of all of his writings - is called "small multiples". Tufte describes these as resembling "the frames of a movie: a series of graphics showing the same combination of variables indexed by changes in other variables". I think that there has been a bit of liberty taken with this concept, but the core contribution we get with small multiples is that they allow us to see high density graphics at a glance and identify trends of interest from this. On top of this, `ggplot` has a special way of showing small multiples, rooted in the layered grammar of graphics.
+
+## Facets
+
+From our very first lecture in this course we know that there are five core grammatical concepts which are internal to each layer in `ggplot` -- our data, aesthetic mappings, geometries, statistics, and position adjustments. In addition to these core concepts, there are three grammatical elements which work across the layers: scales, coordinates, and facets. We've seen how scales can be used to change labels on axes, and how coordinates can be used to flip axes. There's actually a lot more to coordinates -- for instance changing from Cartesian coordinates to polar coordinates -- but this is relatively uncommon and I won't cover it in this course. However, I do want to introduce you to the last of these grammatical elements: **facets**.
+
+A facet is a slicing of your data into subsets based on some variable or variables, then plotting each subset independently in a grid. This is precisely what Tufte was describing for small multiples, so lets take a look.
+
+```{r}
+# Oh a fishing  we will go,  a fishing  we will go, heigh-ho, the derry-o,
+# a fishing  we will go,
+library("tidyverse")
+library("tidylog")
+data <- read_csv("clean_fishing.csv")
+
+# I'm going to get our grouped data of non-boat observations from the great
+# lakes, remember we have to fix that capitalization of the mode!
+groupings <- data |> 
+  mutate(mode=tolower(mode)) |>
+  group_by(year, month, mode) |>
+  summarise(total_effort = sum(effort),
+            total_trips = sum(angtrips))
+groupings
+```
+Ok, this is just our usual fishing data, but now I want to look at something different. I want to see if the distribution of effort changes across years. To start with I'm just going to look at a single mode, the boat, and I'm going to look across nine different years of data.
+
+```{r}
+# Ok, we have to tweak our groupings a bit
+groupings |> 
+  # First up, I only want the boating data, so I'm going to filter on that
+  filter(mode == "boat") |>
+  # Then I'm going to get rid of that column
+  select(-mode) |>
+  # Next, I want nine years of data, so I'm going to choose 2011 through 2019
+  # inclusive
+  filter(between(year,2011,2019)) |>
+  # Now I'm going to plot this. Since we are looking at distributions by month
+  # we want something that looks like a histogram, but since we have the frequency
+  # in out data already, we really want a geom_col. So I'm going to set my
+  # x aesthetic to be the month, and the height of the bar to be the total_effort
+  # Also, if we don't consider our month as a factor who knows what will happen,
+  # so lets forcats it up here.
+  ggplot(aes(x=as_factor(month), y = total_effort)) +
+  geom_col() +
+  facet_wrap(vars(year), ncol=3)
+
+# To create the small multiples we are going to use the facet_wrap() function.
+# The first parameters are the facets, which are the variables we are interested
+# in, and we wrap these in the vars() function which is a lot like the aes() 
+# function we use to wrap aesthetics. In this case I want to facet by year.
+```
+
+Ok, this is a great example of small multiples. Each of the multiples shares axes labels, but is labeled by our facet, the year. We can see how the boating distribution peaked higher in 2011, and by 2019 has fallen quite a bit.
+
+It might be tempting to think that this look a lot like our work with `cowplot`, but it's actually quite different. With `plot_grid()` we are plotting multiple ggplot objects together, but they do **not** share a base layer -- they are different plots, from the perspective of the layered grammar of graphics. Here, everything shares the same set of layers, the `facet_wrap()` is just choosing one more way to segment by a variable value. This is a single plot.
+
+We can of course add in an additional variables such as setting the base plot fill color.
+
+```{r fig.width=7.5}
+# Just looking at non-boats now, note that we need to keep mode in our dataset
+groupings |> 
+  filter(mode != "boat") |>
+  filter(between(year,2011,2019)) |>
+  # Now we set the mode to be fill
+  ggplot(aes(x=as_factor(month), 
+             y = total_effort,
+             fill=mode)) +
+  geom_col() +
+  facet_wrap(vars(year), ncol=3) +
+  scale_y_continuous(labels = scales::label_comma()) + 
+  theme(legend.position = "top")
+```
+
+But, the fun with facets isn't done! The function `facet_grid` allows us to actually unpack and compare two different variables in a grid against one another. For instance, what if we wanted to compare say a few years of data as rows, and columns by different mode values? In this case we just tell `ggplot` which variable we want to be rows, and which to be columns.
+
+```{r fig.width=7.5}
+# Just going to tweak the number of years and change the facet_wrap() to a
+# facet_grid() and set the variables I want unpacked into my rows x columns
+# data
+groupings |> 
+  filter(mode != "boat") |>
+  filter(between(year,2011,2014)) |>
+  # Now we set the mode to be fill
+  ggplot(aes(x=as_factor(month), 
+             y = total_effort)) +
+  geom_col() +
+  facet_grid(rows=vars(year), cols=vars(mode)) +
+  scale_y_continuous(labels = scales::label_comma()) + 
+  theme(legend.position = "top")
+```
+
+You can imagine that we can build pretty complex and interesting new small multiples. I wonder what the small multiples of this data would look like if we added in lake as a variable?
+
+## SPLOMs
+
+There is a special kind of small multiple that is often used in analysis of large datasets call the SPLOM, or the Scatterplot Matrix. It's another great example of small multiples, as it visualizes the pairwise comparisons of all variables such that the data analyst can quickly see if correlations or trends exist. This is not a facet grid though -- faceting takes the values of your variables and unpacks them into rows and columns or just more charts. However, each one of these charts can be arbitrarily complex and contain numerous different variables. A SPLOM, on the other hand, just creates scatterplots of two variables at a time, but it does so for all variables in your dataset. So facets and SPLOMs are both examples of small multiples, but they aren't the same thing conceptually.
+
+Our fishing data, sadly, does not have many continuous variables or even ordinal variables and for scatterplots to be meaningful you really want this kind of data. However, our population data from the BRFSS does, so I'm going to bring in the dataset we used for the population pyramid for a quick demonstration.
+
+```{r}
+# This is a copy and paste from the population pyramid lecture, with a few
+# updates. I'm only going to look at data which is either ordinal, or
+# continuous
+library("janitor")
+library("foreign")
+
+# Here are some human readable labels from the codebook
+income2_levels=c("< $10,000", "< $15,000", "< 20,000", "< 25,000", "< 35,000", "< 50,000", "< 75,000", ">= $75,000")
+x_race_levels=c("White", "Black", "Amer. Ind. Alaskan Nat.", "Asian", "Native Haw. or Pac. Isl.", "Other", "Multiracial", "Hispanic")
+x_sex_levels=c("Male","Female")
+x_ageg5yr_levels=c("18-24","25-29","30-34","35-39","40-44","45-49","50-54","55-59","60-64","65-69","70-74","75-79","80+")
+addepev3_levels=c("Yes","No")
+
+data <- read.xport("LLCP2020.XPT", fill = NA) |> 
+  # Clean data formats
+  clean_names() |>
+  # Choose variables (columns) we want
+  select(x_race,income2,wtkg3,htm4,x_sex,x_ageg5yr,addepev3) |>
+  # Filter for observations (rows) of interest
+  filter(between(x_race,1,8)) |>
+  filter(between(income2,1,8)) |>
+  filter(between(wtkg3,2300,29500)) |>
+  filter(between(htm4,91,244)) |>
+  filter(between(x_sex,1,2)) |>
+  filter(between(x_ageg5yr,1,13)) |>
+  filter(between(addepev3,1,2)) |>
+  # Convert datatypes (factors and labels on levels)
+  mutate(
+    x_sex=lvls_revalue(as_factor(x_sex), x_sex_levels)
+  )
+#    x_race=lvls_revalue(as_factor(x_race), x_race_levels),
+#    x_ageg5yr=lvls_revalue(as_factor(x_ageg5yr), x_ageg5yr_levels),
+#    income2=lvls_revalue(as_factor(income2), income2_levels),
+#    addepev3=lvls_revalue(as_factor(addepev3), addepev3_levels))
+
+data
+```
+To create a SPLOM we can use the `GGally` package which brings in various new plotting methods, including the `ggpairs` method.
+
+```{r fig.width=10}
+# One frustrating of R is how there are no shared naming conventions, so unlike
+# all of other other libraries this one starts with two capitalized letters.
+library(GGally)
+# We don't need a ggplot() base layer for this we can all ggpairs() directly.
+# We must supply our data, but supplying aesthetics is optional. The x and y
+# aesthetics are going to be chosen by other parameters. We do have a columns
+# parameter but -- importantly -- this does *not* refer to the columns of the
+# plot but instead the columns (variables) in our data tibble! So I'm going to
+# provide a list here.
+p<-ggpairs(data, 
+        aes(color=x_sex), 
+        columns = c('income2', 'wtkg3', 'htm4', 'x_ageg5yr'), 
+        diag=c('blankDiag'))
+# Let's display that
+print(p)
+# And I'll save it to a file.
+ggsave("splom.png",p,width=8,units="in")
+```
+
+So, what can we see pattern wise from this SPLOM? The only one that jumps out to me from the SPLOM itself is that there is a relationship between height `htm4`, and weight `wtkg3`. We can see that it's just really rare to be heavy and short based on this empty space in the lower right. That doesn't mean tall people are heavy - there are lots of points in this upper left corner. The sex breakdown, our coloration aesthetic, reveals a few more comparisons. Males tend to be taller, based on this big peach splotch at the top, though it's a little unclear what the density of points are in the weight. We also see this distinction come up if we look at the intersection of the height and age plots, as men tend to skew to the right of that. The income plot shows this again, though it doesn't tell us anything really meaningful about household income since the number of dots in each category and the spread of those dots -- with or without color -- doesn't have a clear relationship.
+
+The `ggpairs` function goes a bit beyond the basic SPLOM chart and also give us some statistical correlations for our color aesthetic, sex, as well as for the intersection of variables. A correlation is a number from -1 to 1, where 0 implies no correlation, a negative number indicates that as one variable increases the other is decreasing, and a positive number indicates that as one variable increases the other variable increases. A value of 1 or -1 is a perfect correlation -- if we compared the height in inches and height in centimeters, for instance, we would have a perfect correlation. In this example we see that weight and height have a strong correlation, more so for men than women, that there is a positive correlation for height and income, and that there is a negative correlation between height and age category. People who are taller report having higher incomes, and people who are older report being shorter.
+
+## Wrapup
+
+Small multiples in R, whether through facets or multiple plots like `ggpairs`, are just one great example of how information visualization theory is executed in modern data science environments. If you want to go further on this topic - and I hope you do! - I'd encourage you to check out how themes in R can be used to change the data-ink ratio to simplify our visuals, to critically question when junk on a chart is junk or when it's a useful recall tool, and to think about the different audiences you want to target with your visuals and how this relates to aesthetic mechanisms available to you.

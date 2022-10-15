@@ -1,0 +1,141 @@
+# Boxplots
+
+## The 5 Number Summary
+
+With our data formatted, let's talk about one of the classical summary statistic and exploratory data analysis techniques, the boxplot. The goal of the boxplot is to summarize the distribution of your data through a visualization of what's called the 5-number-summary: the extremes - often the minimum and maximum values, the center, usually the median of the data, and the first and third quartiles of your the data. The quartiles of your data break it into four roughly similar sized buckets, and so the first and third quartile markers -- sometimes called hinges -- show you the middle 50% of your data. Through the box plot we can get a sense of the weighting of the data in a fairly compact visual representation.
+
+```{r}
+# Let's go fishing!
+library("tidyverse")
+data <- read_csv("clean_fishing.csv")
+data
+```
+
+## Boxplots
+
+Let's look at a portion of this data with the boxplot.
+
+```{r}
+# To start with I'm just going to grab a a single mode, "shanty", a lake, 
+# Michigan, and a year 2005 and 2006. I'm going to print the 5 number summary 
+# as well as show the visualization of the boxplot
+lake_mi<- data |> 
+  filter(mode == "SHANTY") |>
+  filter(lake == "MI") |>
+  filter(year %in% c(2005,2006))
+
+# The base R fivenumn() function returns the results in the format of a single
+# vector of minimum, lower-hinge, median, upper-hinge, and maximum. So let's
+# just print this vector
+print(fivenum(lake_mi$effort))
+
+# For the plot, the x aesthetic will be lake and the y will be the amount of 
+# effort anglers have put in. I'll scale the y axis with a lot of breaks so
+# we can better see values.
+lake_mi |>
+  ggplot(aes(x = lake, y = effort)) +
+  geom_boxplot() +
+  scale_y_continuous(n.breaks = 20)
+```
+
+So this is a basic boxplot. We see from the `fivenum` function the minimum is 24, the bottom quartile or hinge is 1,209, the median is 13,489, while the upper quartile is 42,085 and the maximum is 58,904. But, what can we infer from this which might help someone from the Department of Natural Resources who sets policy? Well, it means that at one location in one year on the lake in a given month only 24 hours of effort was put in fishing from a shanty, but that actually 50% of the time the range of hours is quite larger, between 13,000 to nearly 60,000 hours. Each one of these segments, the lines (which are sometimes called whiskers), and the boxes, have roughly 25% of our observations in them. So, the boxplot is giving us a sense of the distribution of observations and the "weight" of our data points.
+
+But we also have to remember the nature of our data. Let's take a look:
+
+```{r}
+lake_mi
+```
+
+So we see this is actually pretty sparse data and, importantly, only observations in a month when a shanty was used are described. If we had `pivot_wide` our mode we would have a table with a lot of `NA` values in it, because you can't fish from an ice hut when there isn't enough ice on the lake. So the summer months actually have a number of angler trips and efforts in shanties of 0. Thus our conclusions for this boxplot are limited to only those months where shanties were in use. This is ok if it matches up with your question. We also see that in one year -- 2005 -- only one county had shanty fishing. Why? I don't know, but the small number of trips for the other county might give some suggestion, and this might be important for stake holders.
+
+## Increasing Variables
+
+As you might have guessed, we don't have to look at a single boxplot at a time. Instead we can increase the number of variables by changing our filtering and setting more aesthetic mappings.
+
+```{r}
+# I'm going to explore this out a bit by including all modes and lakes. I'm going
+# to set the x aesthetic still to lake and the y to effort, but I'll set the
+# fill aesthetic to the mode. Before we run this, take a moment to pause the
+# video and just reflect -- with your knowledge of ggplot thus far, what would
+# you expect to see rendered?
+data |> 
+  filter(year == "2005") |>
+  ggplot(aes(x = lake, y = effort, fill=mode)) +
+  geom_boxplot() + 
+  scale_y_continuous(n.breaks = 10)
+```
+
+Was it close to what you had in mind? Ok, there's a few things for us to talk about. First, by setting our x aesthetic to the lake variable we have groupings by lake, with lake Erie first (ER), followed by Huron (HU), Michigan (MI), and Superior (SU). Then within each lake we have individual boxplots for the mode of boat, open ice, pier and dock, shanty, and shore fishing. For one lake, Erie, we see there is only boat fishing. Also, people who know the great lakes area know that there is one missing, Lake Ontario! So why is this? Remember again the source of our data, the Michigan Department of Natural Resources.
+
+![The Great Lakes](nasa_lakes.jpg)
+
+So we can see that the state of Michigan doesn't border on Lake Ontario, which is why there is no data for it, and that the border it shares with Lake Erie is actually really small, so only a few counties would have reporting data. The upper part of Michigan, called the Upper Peninsula or UP by us locals, actually has a significant border with Lake Superior, so the number of observations there might seem small, but the counties in this area of the state are very low in population as it's quite remote.
+
+But there are a few other things happening in our visualization, so let's focus on Lake Huron, which shares a border with the province of Ontario in Canada.
+
+```{r}
+# Since we are using only one lake, let's use three different years, and set
+# our axis to the number of years. And, let's play that game again, what visual
+# do you think is going to be created with this code chunk? Pause the video
+# and reflect before we look.
+data |> 
+  filter(year %in% c(2005,2006,2007)) |>
+  filter(lake == "HU") |>
+  ggplot(aes(x = year, y = effort, fill=mode)) +
+  geom_boxplot() + 
+  scale_y_continuous(n.breaks = 10)
+```
+Ok! Did you expect that? I confess I didn't, I completely expected to see three groups of boxplots, one for each of our years. But this makes sense, right? `ggplot` is being given an integer number, not a factor, so it's assuming we want to see a single boxplot group along the range of values which are in years. To see it as three groups, we want to convert our years into factors.
+
+```{r}
+# Quick little touch up to the code! 
+data |> 
+  filter(year %in% c(2005,2006,2007)) |>
+  mutate(year = as_factor(year)) |>
+  filter(lake == "HU") |>
+  ggplot(aes(x = year, y = effort, fill=mode)) +
+  geom_boxplot() + 
+  scale_y_continuous(n.breaks = 10)
+```
+Ok, a few things to note. First, we have things broken down both by mode and year, so we can compare across both of these. For instance, if we look only at the blue bars -- shanties -- we see that there is a fair bit of difference between 2005 and 2006/2007, while for boat fishing, there doesn't seem to be much difference. We can also compare between bars, and we see that in 2005, the median of the number of hours anglers spent in shanties per month is almost the top of the third quartile of the number of hours anglers spent fishing from a boat, and all of these are much larger than shore and dock fishing. We also see another visual aspect of the boxplot -- the outliers.
+
+Now, how outliers are detected really depends, and there are various mechanisms to determine whether an observation is an outlier or not. If we look at the documentation for the `ggplot` boxplot, it states that outliers are all data points which are either greater than or less than the distance between the hinge (the bottom or top of the box, or first and third quartile), and 1.5 * the inter-quartile range (IQR). The interquartile range is the distance between the two hinges, which captures 50% of our data. So the whiskers on `ggplot` boxplots don't actually go to the minimum and maximum values, they go to this difference between the hinge and the 1.5 * the IQR. The intention with this approach is to not give an overly large sense of weight to just a few points.
+
+So data beyond the end of the whiskers are called outlier points and by default are plotted individually.
+
+## Increasing Clarity with Dotplots
+
+Sometimes when there is a very small amount of data the boxplot can give you a false sense of how important each of the different values are. In our very first boxplot example this was certainly true -- we had a visual of a five number summary when there were only 9 observations of data. One technique to try and balance this is to merge boxplots with dotplots. A dotplot is exactly as it sounds, it represents each observation with a single dot. It's kind of like a scatter plot, but the x axis is the same for each observation, since each one is for the same group. In our case, this was the lake, let's take a look at a dotplot.
+
+```{r}
+# I'm going to include just a bit more data in here to demonstrate the dotplot
+# effect. The dotplot will just be another layer in our visual. So I'm going to
+# show you two visuals side by side with cowplot
+library("cowplot")
+
+gg_base <- data |> 
+  filter(mode == "SHANTY") |>
+  filter(lake == "MI") |>
+  filter(between(year,2007,2010)) |>
+  ggplot(aes(x = lake, y = effort)) +
+  geom_boxplot() +
+  scale_y_continuous(n.breaks = 20)
+
+# Now, the geom_dotplot has a couple of parameters. The most important is the
+# binaxis. geom_dotplot is essentially binning your data by observations, and
+# then stacking it to demonstrate it, so here we want to show those bins
+# along the y axis, and I want it stacked in the center.
+gg_with_dot <- gg_base +
+    geom_dotplot(binaxis='y', stackdir='center', dotsize=0.5)
+
+plot_grid(gg_base, gg_with_dot)
+```
+Ok! We have our basic boxplot on the left hand side, and we see there is one outlier. What we don't know from this is what the distribution of observations are in the third quartile -- between the mean and the start of the top whisker. We just know that this has roughly 25% of our data, but that's it. From the dotplot on the right we can see clearly that actually three of those points are right at the top of the quartile, while the other three are in the mass of it. We also see that there are a **lot** of points -- these are rows in our data -- right at the bottom of the first quartile, all 0 or close to it. There are so many points here in one space that the bottom two quartiles share a border with zero.
+
+Layering on a dotplot on top of a boxplot can be a powerful way to get more insight into the distribution of our data.
+
+## Wrapup
+
+Boxplots are a great way to get some insight into the distribution of your data, and I think they work decently for small amounts of data. But I confess, I've largely replaced them in my workflows with violin plots, and we're going to look at those next.  Boxplots were in their prime when the five number summary was a fast way to calculate some statistics, but modern computational power means it's pretty easy to apply new methods which show a bit more nuance.
+
+Regardless, the use of a dotplot layered on top of your boxplot is really quite beneficial when you are dealing with small data. Sometimes a graphic lies through omission, by showing the viewer distributions and leading them to conclusions which are shaky because of the lack of data available. And I think it's worth thinking about that with this fishing example -- how do you think the visualizations would change if zero values for angler trips and estimates for those months where we had no data for a given mode? Do you think that's a boxplot you could build? I'm convinced that, between this lecture and our previous one on `pivot_wide`, you should be able to relatively quickly go through that exercise and gain deeper insight into the distributions of fishing activities.

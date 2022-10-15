@@ -1,0 +1,95 @@
+# Ridgeline Plots
+
+## Comparing Distributions
+
+The boxplot and violin plots allow us to compare distributions, but a more compact representation exists called the ridgeline or ridge plot. You can imagine a ridgeline plot as a bunch of violin plots which are cut in half vertically, squished together, and then flipped 90 degrees. The result is a a series of mountain "ridges", one for each item we are comparing, which show overlapping distribution functions. This allows you to quickly get a sense of which distributions differ, and by how much.
+
+In fact, this plot type, like many others, isn't really that new. One of the earliest examples of this is from 1805, and can be found in the book "An inquiry into the permanent causes of the decline and fall of powerful and wealthy nations", by William, Playfair. The book has a number of painstakingly drawn charts and visuals, including stacked line charts and this image of the wealth of nations versus time. Each nation gets a separate row in the visual, and it's fairly easy to compare at any point in time two nations. Now this visual doesn't show overlapping ridges, it's more of an example of a technique called "small multiplies" which we'll talk about next week, but it's pretty close to what modern ridgeline plots look like.
+
+Lets take a look at how we can tackle this in R.
+
+## `ggridges`
+
+```{r}
+library("tidyverse")
+library("tidylog")
+data <- read_csv("clean_fishing.csv")
+
+# I'm going to get our grouped data of non-boat observations from the great
+# lakes, remember we have to fix that capitalization of the mode!
+groupings <- data |> 
+  filter(mode != "boat") |>
+  mutate(mode=tolower(mode)) |>
+  group_by(year, mode) |>
+  summarise(total_effort = sum(effort),
+            total_trips = sum(angtrips))
+groupings
+```
+Ok, I think a reasonable first start with this is to look at the distribution of effort by mode, like we did with the barcharts. To use the ridgeline plots we need to import the library `ggridges`, as these plots are not part of the default geometries we get with `ggplot2`.
+
+```{r}
+library(ggridges)
+library(scales)
+
+# We often set the aesthetic of the alpha channel, which is the transparency,
+# in the ridgeline plot. The effect allows us to better see overlap. An alpha
+# value of 0.5 is 50% transparent.
+groupings |> 
+  ggplot(aes(x = total_effort, y = mode, fill = mode)) +
+  geom_density_ridges(alpha = 0.5) +
+  scale_x_continuous(labels=label_comma())
+```
+
+Ok! That's interesting, and a little bit different. We can see immediately that everything but the boat distribution looks "similar". Well, the shore line distribution has a little bump on the one tail, but otherwise these distributions all look relatively symmetric around the peak. Looking for features in distributions to classify them and then apply appropriate statistical tests is a common activity of statisticians, and you can see how you might aid in our efforts to do that.
+
+The boating distribution, as we have seen before, is certainly different. There are some "chunks" of mass, around the 2 million and 5 million hour marks. Why don't we cowplot this up and compare the three different techniques we have seen? Actually, now would be a great time to try and do that yourself -- my solution will be below, but you have all the skills to do this on your own if you want to give it a try!
+
+## Comparing Plots for Comparing Distributions
+
+I'm going to start by introducing a few more chunk parameters. Remember that the first line of the code chunk we are telling R Markdown that we are using R, and then we can pass in parameters. Up until now I've not put in many parameters, but there are a few you should be aware of. Now, chunk options themselves actually come from the `knitr` package, and if you look at the top of the source code window you'll see that there is the option to "Knit" this document into a PDF file, HTML file, and so on. If you want to explore the functions available, you should check out the `knitr` website: https://yihui.org/knitr/options/
+
+I'm going to start by turning off warnings, errors, and other informative messages from our libraries. I generally don't think this is a good idea, but if you are creating a document for others and have already understood the warnings you have seen then it's ok. I'm also going to set the figure width to a larger number, because I want to see these three plots side by side
+
+```{r echo=FALSE, fig.height=5, fig.width=12, message=FALSE, warning=FALSE, errors=FALSE}
+
+# If you click the little gear icon at the top of this code chunk on the right 
+# hand side you'll see that you can configure a number of the options right
+# there. But you can just type them in the header of the chunk itself too.
+library(scales)
+library(cowplot)
+
+# This is our new ridgeline plot, I'm going to add labels so we can clearly
+# compare, and because of course it's good practice!
+gg_ridge <- groupings |> 
+  ggplot(aes(x = total_effort, y = mode, fill = mode)) +
+  geom_density_ridges(alpha = 0.5) +
+  labs(title = "Ridgeline Plot") +
+  scale_x_continuous(labels=label_comma()) +
+  theme(legend.position="bottom")
+
+# Now the violin plot. Remember our X and Y axis values are different from
+# the ridgeline
+gg_violin <- groupings |> 
+  ggplot(aes(x = mode, y = total_effort, fill = mode)) +
+  geom_violin(alpha = 0.5) +
+  labs(title = "Violin Plot") +
+  scale_y_continuous(labels=label_comma()) +
+  theme(legend.position="bottom")
+
+# Now the box plot
+gg_box <- groupings |> 
+  ggplot(aes(x = mode, y = total_effort, fill = mode)) +
+  geom_boxplot(alpha = 0.5) +
+  labs(title = "Boxplot") +
+  scale_y_continuous(labels=label_comma()) +
+  theme(legend.position="bottom")
+
+# Now cowplot it up!
+plot_grid(gg_ridge, gg_violin, gg_box, cols = 3)
+
+```
+We can make a few observations about the three methods. First, let's talk about this peach colored bar, or the boat information. The ridgeline plot shows us a density function of the data, and is more informative than the boxplot because we can see that there are actually very few values around the mean which is about 4 million hours. The violin plot here is pretty useless, because the horizontal space is limited. As the size of the plots get smaller the boxplot becomes extremely difficult to read, because of all of the hard lines, so other than knowing that the mean is different than, say, the shore and the shanty, there isn't much we can say. The violin plot makes it clear that there is a distribution difference between these two, as does the ridgeline, but they do it slightly differently. The additional vertical space due to the overlapping nature of the ridgeline plots allows us to more clearly see a distribution shape versus the violin plot.
+
+## Wrapup
+
+This week we finished our tour of how to use `ggplot` to explore distributions. You've seen a lot of different and overlapping techniques -- histograms for binning continuous values, kernel density estimations for estimating a function based on histogram data, the boxplot for visualizing the 5-number summary of many variables, the violin plot and dotplots which allow us to look at many variables but see a distribution function and individual observation values respectively, and the ridgeline plot, which is especially useful for compact visualization and comparing distributions.

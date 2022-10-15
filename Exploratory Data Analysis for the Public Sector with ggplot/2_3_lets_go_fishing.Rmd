@@ -1,0 +1,111 @@
+# Exploring Distributions
+
+In this week I want to introduce you to a few more exploratory data analysis methods for distribution data. With a handle on how basic `ggplots` work, and and understanding of some of the fundamental types of charts such as line, bar, scatter, and histograms, I think we can start to look at a few more advanced visual methods for distributions of data. While the theme of this week stays with visualization of distributions, I'm going to bring in a different dataset, this time from the Department of Natural Resources in the State of Michigan. This dataset looks at the fishing data on the great lakes which are the largest fresh water bodies in the world. Called __creel data__, this data makes up the effort anglers (people who fish!) put in and the results of that effort. Most of this data is collected manually by the Department of Natural resources, let's jump in and take a look.
+
+## Loading in Creel Data
+
+```{r}
+# I'll start the same way as usual
+library("tidyverse")
+library("janitor")
+library("tidylog") #this will come in regularly now!
+data <- read_csv("Michigan_Creel_Data_Effort.csv") |> clean_names()
+data
+```
+
+So we can see here we have only a few different variables, a unique identifier, time (month and year), some location information (lake, county, port, site), a mode which seems to be how the fishing was done, and then an estimate which is either `ANGTRIPS` or `EFFORT`. The first of these estimates is how many trips anglers made in the time period, while the second is the number of hours they put in actually fishing.
+
+This data would generally be considered non-tidy, in that for a given date there is both an estimate of the angler trips and the effort, and those should really be represented by different columns or variables. So we can clean this up a bit to make it easier to work with.
+
+## Pivoting Data with `pivot_wide`
+
+There are two different functions which can help us convert rows to columns and vice versa -- `pivot_wide` and `pivot_long`. Right now our data is in long form, because we have two rows for each observation, one with angler trips and one with effort. If we use `pivot_wide` we can convert these into a single row with two columns, one which holds the estimate of the number of trips, and the other which holds the estimates of effort.
+
+```{r}
+# First we are going to drop that unique identifier. If we left it there then
+# pivot would be confused about how to collapse row values together.
+data <- data |> 
+  # Negative selection is a nice way to do this!
+  select(-objectid) |>
+  # Next I'm going to drop a bunch of columns we don't need for this analysis
+  select(-creation_date,-creator,-edit_date,-editor)
+
+# Now we want to pivot wider -- to add columns. We want the column name to
+# come from the estimate variable, and the value to come from the estimate_value
+# variable. We tell tidyr which values these are with the names_from and
+# values_from columns respectively.
+
+# I'm going to just demonstrate this on a bit of the data
+data |> head(10) |>
+  pivot_wider(names_from=estimate,values_from=estimate_value)
+```
+
+Ok, so this is how things should look. You can see that we have a unique year and month for each line, and that we have new variables for angler trips and effort. We have widened our tibble, though I did drop a bunch of columns we don't need too. So, let's do this to all of our data.
+
+```{r}
+data |> pivot_wider(names_from=estimate,values_from=estimate_value)
+```
+
+Hrm. When we do this to all of our data the value in the `ANGTRIPS` and `EFFORT` variables becomes a vector of doubles. If we page through this most of them seem like they are of length one, or maybe a few `NA` values but that should be fine. So what's happening? Why is `pivot_wide` creating these values as vectors? Well, we need to do some sleuthing in our data! Usually when this happens it means that there are more than two rows which match, so `pivot_wider` isn't sure what to do and decides to put vectors in those variables for us. `pivot_wider` never wants us to lose data because of something it did implicitly -- if we told it the columns it should pivot out, and those columns are not unique and have multiple entries for the rest of our data, `pivot_wider` is going to put vectors inside the variables for us.
+
+## Debugging
+
+A handy function we haven't look at yet which comes from the `janitor` package is called `get_dupes`. This package allows you to specify which columns you are interested in and tells you how many matching values are in those. Let's use it to try and find out issue issue -- by default `get_dupes` will return a new column in our data called `dupe_count`, so lets sort by that.
+
+```{r}
+# We can indicate the columns we want to exclude from the duplicate checking,
+# in this case our estimate and estimate_value columns, using a negative
+# vector
+data |> get_dupes(-c(estimate,estimate_value)) |> arrange(desc(dupe_count))
+```
+
+Ok, so we see that there are a number of entries here which have three duplicates when we only want two. If we look at the first three entries we see that there is one entry for angler trips, but that there are two entries for effort with different values! Welcome to the chaos of real-world data. Let's see how many instances of this bad data we have.
+
+```{r}
+data |> get_dupes(-c(estimate,estimate_value)) |> 
+  filter(dupe_count>2) |>
+  nrow()
+```
+
+Ok, there are only 18 rows which fit this criteria, so I'm going to consider this an acceptable amount of data loss and add that in to our data manipulation. Before I do this though I want you to go think about this `get_dupes` function I just introduced you to. It identifies duplicates given a set of columns. We don't really need this though, right? We have all of the tools we need to do this this ourselves with `dplyr`. So if we didn't have this function, how would you identify duplicates?
+
+Now let's finish off our data cleaning activity
+
+```{r}
+# I'm going to use get_dupes as a filter in our data, then pivot from the
+# remaining values
+data <- data |> get_dupes(-c(estimate,estimate_value)) |> 
+  filter(dupe_count==2) |>
+  select(-dupe_count) |>
+  pivot_wider(names_from=estimate,values_from=estimate_value)
+print(data)
+```
+
+Great! We have a `tibble` now where the observations are unique to a given date, location, and mode -- the kind of fishing being done -- and we have our angler trips and efforts as new variables.
+
+## When to Stop
+
+There is a sort of philosophical question at play here though -- What is an observation, and really when should we stop pivoting? For this data I've got in mind that an observation as a date, a location, and a mode. But someone else might say it's just a date and location, and that modes should be combined with the columns of angler trips and effort. This all depends on your question and what visualization you might want to be doing. Still more might argue that if you only have a couple of locations and you're looking to compare between them, and every location has a measurement in a given month and year, then it makes sense to have these as columns. I don't think there is one clear answer to what a tidy dataframe is really exists -- the context of your inquiry defines this.
+
+```{r}
+# Here's an example of how we could pivot this even wider, and create new
+# columns for each mode and angtrips/effort pair. You'll notice that a lot of this
+# is empty and for good reason -- some methods of fishing, like ice fishing,
+# aren't actually something you can do in the summer, when there is no ice!
+data |> pivot_wider(names_from=mode,values_from=c(ANGTRIPS,EFFORT))
+```
+
+## Wrapup
+
+Ok, this is our data for the week, fishing data! Michigan is a very outdoorsy state, with lots of hiking, fishing, and hunting. Vast portions of the state actually have a very low population density and are quite remote. In this week we saw how `pivot_wider` works to turn rows into columns and change what an "observation" is in our dataset, and this is actually a pretty essential skill in most data manipulation activities. We also were introduced to the handy `get_dupes()` function. One more thing though, which I haven't shown you yet, is how to save your tibbles to a file. Up until this point we've just copy and pasted our data from a previous lecture, but since we're going to be working with this data the whole week I want to show you how write our data to a file. It's not exactly rocket science!
+
+```{r}
+# There are a number of different mechanisms but it's still pretty common to
+# use the CSV file. Also, one more run through clean_names since we have some
+# new columns with uppercase values
+data |> clean_names() |> write_csv("clean_fishing.csv")
+```
+
+The defaults for `read_csv` are all fine for us today, but you can do things like append to a file if it already exists, suppress column names, and change delimiters. There are also a host of other functions for other file formats.
+
+Now that we have some clean data, let's get exploring!

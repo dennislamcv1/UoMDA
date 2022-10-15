@@ -1,0 +1,230 @@
+# Exploring Trends
+
+This week we're going to focus on expanding our set of exploratory data analysis techniques, and I think it's worth revisiting the topic of trends. Displaying, calculating, and comparing trends is a really common task in the public sector, and there are a lot of different methods which can be used. It's quite common that we'll want to create graphics to demonstrate a trend over time -- like we did in the first assignment or from the pet data -- and use it to compare a few different groups. A separate but highly related need is to forecast from trends so that policies can be made, and this requires building a statistical model of our data and then rendering it into some future time to predict what might happen. This modeling activity is not trivial, and generally you will be working with statisticians if you're doing a significant amount of forecasting
+
+Reflect, for a moment, on the number of different predictions we heard for case loads in hospitals during the early days of the Covid pandemic. There were various different statistical models all incorporating different variables and insights from epidemiologists and other experts, and decision makers needed to be able to communicate both with these experts and the general public. Your role might very well be to aid in that communication, either between the statisticians and the decision makers or between the organization and the general public.
+
+## Creating Readable Information Visuals
+
+Broadly, a statistical model is a set of relationships between different variables in the data which we can express as a mathematical formula. We've seen how R handles formulas, and I'm not going to go into the math behind different models in this course, but I do want to explore how we can use `ggplot` and the grammar of graphics to visualize a model on top of our data plots. You'll hear more in the next course about a few interesting public policy models and how they are being used for forecasting, but for right now, let's bring in our data on life expectancy values from last week's assignment and explore them.
+
+```{r}
+# True to form I'm going to bring in the tidyverse and janitor and clean my
+# column names
+library(tidyverse)
+library(janitor)
+
+data<-read_csv("data/hld") |> clean_names()
+
+# I'm going to filter by the same set of parameters we used for the assignment
+# and I'm going to look specific at the data from India
+india <- data |> 
+  filter(region==0, ethnicity==0, age==0, type_lt==4,residence==0) |> 
+  filter(country=='IND')
+
+# Now we can plot this data using the year1 column on the x axis and the expected
+# age, which janitor turned into column e_x, on the y axis. I'll send the data
+# and these aesthetic mappings into the base layer (e.g. ggplot()) and then
+# I'll add a line plot that separates out observations by sex
+india |> 
+  ggplot(aes(x=year1,y=e_x)) + 
+  geom_line(aes(color=as_factor(sex)))
+```
+Ok, so in your assignment you probably created something like this, or at least I hope you did! Now, it's still pretty ugly, and we haven't talked about styling our visuals yet. First I want to tackle the issue of human readable labels on the plot. The name of the axis and the legend are all pulled directly from our data, but of course we wouldn't show this to a decision maker directly like this. We have a few options - we can change our data, which might be a reasonable approach - or we can change the labels. I think I'm going to do both here.
+
+```{r}
+# I'm going to change our base plot so that our factor values are more human
+# readable. One way we could do this is to create a function which we can
+# apply to the factor which will return either "Male" or "Female" if the value
+# is 1 or 2
+relabel_sex<-function(factor_levels){
+  new_levels=c()
+  
+  # Now, up to this point I haven't shown you the basic R syntax for conditional
+  # statements and looping, so one of the reasons I'm doing it this way is to
+  # make sure you see that! All we are going to do is iterate through all of the
+  # factor levels passed in and return an appropriate string transformation
+  for(level in factor_levels){
+    if (level=="1"){
+      new_levels<-append(new_levels, "Male")
+    }
+    else{
+      new_levels<-append(new_levels, "Female")
+    }
+  }
+  return(new_levels)
+}
+
+# Now we can pass this function into fct_relabel(). I'm also going to assign the plot 
+# back to a variable. We haven't done this before but it's a great way to build 
+# up a visualization, and a call to ggplot() just results in an R object which 
+# we can render with a call to print()
+gg_india <- india |> 
+  ggplot(aes(x=year1,y=e_x)) + 
+  geom_line(aes(color=fct_relabel(as_factor(sex), relabel_sex)))
+
+# To actually show the plot we have to print it
+print(gg_india)
+```
+So that was a pretty long chunk of code to do what you can probably do faster with `forcats`, but I wanted to show you how some of the base programming features of R work. There are lots of times you might find it easier to write your own function to manipulate data and sometimes doing so even when you don't need to will improve your understanding of how R works. For instance, to write this function I had to go look up the documentation for `fct_relabel` (remember, `?fct_relabel` for inline docs!) topsee what parameter would be passed into the function I wanted to write.
+
+Now that we have this plot let's clean up our labels. The `ggplot` framework has a few different functions we can use to do this quickly, and since we have a plot already in our variable `gg_india`, we can just add the labels directly to that.
+
+```{r}
+# First up let's deal with the X and Y axis. We can use the labs() function
+# to set a variety of labels, or if we just want to set the x and y axis label
+# we can use the xlab and ylab function
+gg_india <- gg_india +
+  labs(title="Life Expectancy at Birth for India", 
+       caption="Data from the Max Planck Institute for Demographic Research") +
+  xlab("Year") +
+  ylab("Life Expectancy at Birth (years)")
+print(gg_india)
+```
+That looks much nicer, something we might put in a publication or on a poster or hand out. Let's look at the legend next. The legend values are pulled automatically from our data and it would be reasonable to go back to the data and change these. But an alternative method is to label the color aesthetic. Remember we have mapped the color aesthetic to the variable `sex`, so we can call `labs()` and indicate that the color aesthetic should also be mapped to a label value. We could have done this for our `x` and `y` aesthetics too, I just want to show you a diversity of options.
+
+```{r}
+# We can map an aesthetic to a label value with labs()
+gg_india <- gg_india +
+  labs(color='Sex')
+print(gg_india)
+```
+## Understanding Trends
+
+With this graph nicely labeled we can start to think about what the data means. We can see that from about 1900 until 1975 men had a higher life expectancy, and that the life expectancy for both genders has been largely rising. We can see that after 1985 or so there is a change, and that women now have a higher life expectancy at birth. Let's zoom in on that - we can do so by just setting our scale for the plot. Remember that the scale works across all of our layers, so if we had more than one layer they would all be scaled identically. That will be important in a bit.
+
+```{r}
+# Right now our x axis isn't in a date format, it's an integer. We could change
+# it do a date or leave it as an integer. I'll do the first of these, and this 
+# seems like a job for lubridate!
+library(lubridate)
+
+# Now our current value is just the year as a character string, so "1901" for the year
+# 1901. But the representation of a date in R requires us to have at least a
+# month and a day as well. I'm going to manually add in the month and day of
+# January 1st, so that all of our years are aligned at the beginning. So this
+# means I actually want to change our date variable in our data by concatenating
+# the string "-01-01" to it. Then lubridate can change this easily.
+
+# First though, how do we get that data? Well, our plot object holds the
+# data in a variable called data. And our data holds the year in a variable
+# called year1, so we can get the data out pretty easily
+old_dates <- gg_india$data$year1
+
+# This is now a vector of our string values. So how do we concatenate strings?
+# We can use the function str_c() which will join all of the inputs together.
+# If we pass our column of dates as our first item to str_c, and then pass in
+# a string vector we want to add to this, str_c() will recycle that string vector
+# and apply it to every element in our column of data
+new_dates<-str_c(old_dates,c("-01-01"))
+
+# Now we can lubridate that up, and assign it back to our data
+gg_india$data$year1 <- ymd(new_dates)
+
+# If we plot that it's not going to look any different, but we can now set the
+# x limits as a date
+gg_india<-gg_india+scale_x_date(limits=as.Date(c("1985-01-01",NA)))
+print(gg_india)
+```
+Something to notice here -- the two trend lines are "squished" up towards the top of the graph. We didn't change our `y` scale. To fix this we want to set the y lower limit. Also, right now we only see three different years along the bottom axis, but it might be more informative to see a few more. We can tell `ggplot` we want to control this more explicitly, but when we add a new `scale_x_date` it will delete the old one, so we have to make sure to set our `limits` appropriately too.
+
+```{r}
+# We'll set the lower value of the y axis to be 55, and then we'll use the date_breaks
+# parameter of the scale_x_date to see every 5 years. Remember that our y axis
+# is a continuous value, not a date, so we're going to use scale_y_continuous()
+# function for that axis, but the scale_x_date() function for the x axis
+gg_india <- gg_india + 
+  scale_y_continuous(limits=c(55,NA)) + 
+  scale_x_date(limits=as.Date(c("1985-01-01",NA)), date_breaks="5 years")
+print(gg_india)
+```
+Ok, I could feel pretty good about taking this to a decision maker and showing them that not only is the life expectancy increasing, but there is a growing disparity between the life expectancy for men and women, with women living on average 5 years longer than men -- to the age of 70 on average -- by the year 2013, despite that the late 1980s both sexes had a roughly equal life expectancy of 57 or 58 years. Various social, economic, policy, and employment issues might be then investigated to try and understand the causes of these differences.
+
+## Going Further with Trends
+
+One of the main interests of a policy maker is to forecast. I talked a bit about how challenging and technical forecasting is, but I want to use this data to show you how you might visualize and forecast if you had models. The most common method would be to create a linear model for each of our populations of interest. In a linear model the output of one variable is directly related to another variable. Our data lends itself pretty reasonably to linear modeling because the slope of our lines seems roughly constant.
+
+Once we have a decision on the model, we have to think about how we are going to visualize it. In the `ggplot` layered grammar of graphics it seems that this would naturally become a new layer. So we could take a model and then plot it as another `geom_line` on top of this one. But `ggplot` actually has a special geometry in it called `geom_smooth` which will aim to create a model for us and do the plotting. It has a lot of options and can save time. It also allows you to specify a model if you have one, which is pretty powerful. Let's take a look at how we can use `geom_smooth` with this data.
+
+Since I did a lot of building up of the ggplot object, I want to rewrite some of that here so you have a more complete solution.
+
+```{r}
+# Up front I have to make a decision, what set of dates do I want to include in
+# my data? This is important because the data from across all of those dates will
+# be used to calculate the  forecasting lines, not just the rendered data. In
+# this case I'm going to take data from 1920 on, and I'm going to set this as a 
+# date value in my dataset.
+
+# I'm going to filter by the same set of parameters we used for the assignment
+# and I'm going to look specifically at the data from India
+india <- read_csv("data/hld") |> 
+  clean_names() |>
+  filter(region==0, 
+         ethnicity==0, 
+         age==0, 
+         type_lt==4,
+         residence==0,
+         year1>=1920,
+         country=='IND') |>
+  mutate(year1=ymd(str_c(year1,c("-01-01")))) |>
+  mutate(sex=fct_recode(as_factor(sex), "Male"="1", "Female"="2"))
+
+# When dealing with relatively small data like this I like to put all of my data
+# clean - the dplyr commands - in one block. This allows me to pretty quickly go
+# back and check assumptions about my dataframes when debugging ggplot or tweaking
+# visual representations
+
+# Now we can plot the data, I'm going to condense here as well, and I'll bring
+# the mapping of the sex aesthetic to color up into the base layer so it can be
+# inherited by all of our other layers since we want the colors to match
+gg_india <- india |> 
+  ggplot(aes(x=year1, y=e_x, color=sex)) + 
+  geom_line() +
+  labs(title="Life Expectancy at Birth for India", 
+       caption="Data from the Max Planck Institute for Demographic Research",
+       x="Year",
+       y="Life Expectancy at Birth (years)",
+       color='Sex') +
+  scale_y_continuous(limits=c(NA, 90), n.breaks=12) + 
+  scale_x_date(limits=as.Date(c(NA,"2030-01-01")), 
+               date_breaks="10 years",
+               labels = function(x) strtrim(x, 4))
+
+# Now lets render this
+print(gg_india)
+```
+
+So I'm throwing a few new things out here. First, I hard coded the y value to be 90 years old, because we are going to forecast out a bit. I could use dplyr to access the actual data and save that in a variable, but for brevity I decided to change our y limits in this way.
+
+Next, I want to change the labels for the x axis. Since I want to be able to forecast out until 2030 I want to truncate the dates to just the year. The function I am going to us to change the labels is a base R function called strtrim, it takes two parameters, the string to trim and how many characters to leave. Since I only want the year left for display, I'm trimming to four characters. To apply this though we need to wrap it in a function that only takes one parameter, because that's what scale_x_date is planning to use. So I defined a new function, but instead of giving it a name and doing it over multiple lines I did here it inline. Go back and look at that R syntax, it looks pretty much the same as a regular function definition, but everything must fit on one line, and there are no curly braces (`{}`).
+
+Now lets add in our trend line as a new layer.
+
+```{r}
+# For the trend line we're going to use the geom_smooth() function. It's both a
+# geometry (a line) as well as a statistical function. It will inherit the base
+# layer aesthetics and data, and the scales apply to all layers so we don't have
+# to do them again. Instead, we just have to think about what we want to display.
+# The geom_smooth() function, for small data like this, will build a linear 
+# model mapping y ~ x across all values (the method argument). I also want to tell
+# geom_smooth() to span across the full range of the axes so that it plots out beyond
+# the data we have. I'm turning off the standard error - which is plotted by
+# default - just for clarity here, and then changing the line to a dashed line
+# so we can distinguish it from the line of real data.
+gg_india <- gg_india + 
+  geom_smooth(method="lm", fullrange=TRUE, se=FALSE, linetype="dashed")
+
+# Now we have two layers, both with the same set of aesthetic mappings because
+# they inherit them from the base layer they sit on. The first layer is our
+# geom_line(), and this second one a geom_smooth(). We also have some scale
+# transformations in here, but it doesn't matter what order we place them in
+# because they affect all layers. Ok, let's take a look.
+print(gg_india)
+```
+
+So that's a pretty nice basic chart with two groups, their actual data lines, and a simple forecast for each gender based on a linear model. This is pretty easy to interpret and get a sense that by the year 2030 Indian women have a high chance of having a life expectancy of 80 years, while men will be lower at 75 years. And on top of it all, the chart looks good, is readable, and you could relatively quickly build this for other countries in the dataset.
+
+## Wrapup
+I'd like you to reflect on the last two code chunks we wrote.  Aren't they... beautiful? We have one pipeline which reads in our data, manipulates it into a format we can use to answer questions, and is pretty easy to maintain. This then feeds into `ggplot`, which has two layers built on top of a base. The layers share the same set of data and aesthetic mappings, so the rendering of the line plots is coherent and we didn't have to do anything special to make this happen. We've augmented those layers with some plot-wide scaling functions and labels to turn a basic plot into a forecasting tool. Understanding the layered grammar of graphics allows us to write concise yet clear code.
+
+We're not done talking about population data yet, but I want to set a target for us this week. Do you think we could build the population pyramids Dr. Lantz discussed in the first course? I think we can, but first we should delve in a bit more and see how to plot samples from populations with histograms.

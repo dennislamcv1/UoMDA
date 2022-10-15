@@ -1,0 +1,163 @@
+# Exploring `ggplot`
+
+With some experience using ggplot under our belt it's time to do a little exploration of some of the fundamental plots which are available to us. I think we can keep using this pets data before we change next week, so let's load that in.
+
+```{r}
+# First thing I'm going to do is bring in the tidyverse
+library(tidyverse)
+
+# I also promised you no more back ticks, so I'm going to bring in a new
+# package to clean things up called janitor
+library(janitor)
+
+# Now I'm going to bring in the pets data. The first column is actually a set
+# of dates so I'm going to read that in as appropriate. Remember to check out
+# the help for a function like read_csv by typing ?read_csv
+data<-read_csv("./data/Seattle_Pet_Licenses.csv", col_types="ccccccc") |>
+  # I'm going to pipe this to clean_names() from janitor. This is going to
+  # change our column names into a format called snake_case, and remove all non
+  # alphanumeric values
+  clean_names()
+data
+```
+There are a couple of different common formats for variable names, and in this case I went with the default which is called "snake case", because it lower cases everything and separates words with underscore (thus looking a bit like a snake). Another one you will see used in R regularly, including in base R functions, is "camelCase", which gets rid of whitespace but capitalizes each word in the name making it look a bit like the humps on a camel. Snake case is commonly used in languages like python, while camel case is used in languages like Java.
+
+I want to deal with that date column at the beginning. I'll be honest, dates are painful in the programming world - there are hundreds of different ways we humans represent dates, and it's not always clear even to other people what a given date represents. For instance, I've had to learn the American style manner of representing dates as numbers in the form of month/day/year, while in Canada where I'm from this is written as day/month/year. It can make for some confusion when trying to interpret what the value `07/01/2022` actually is!
+
+In R we can get help using the `lubridate` package. I'm going to use it to clean up our date column, and you can check out the docs if you want to learn more about the options for this package.
+
+```{r}
+# Let's bring in lubridate
+library(lubridate)
+
+# Now I'll just set the value of the first column to be a date. There are a lot
+# of functions that lubridate provides, but the ones which I used the most just
+# specify the ordering of the components of the date -- in this case it's
+# month followed by day followed by year, so I'll use mdy() and lubridate will
+# work with parsing numbers and strings appropriately.
+data$license_issue_date <- data$license_issue_date |> mdy() 
+data
+```
+
+Ok, that's the bulk of our data cleaning. Dates can be chaos, especially when you have time zones or missing information, and there are a lot of options for `lubridate` which you can explore as you look at different datasets.
+
+## Scatter plots
+
+A common exploratory data analysis technique is to compare two variables against one another using a scatterplot. This really needs continuous, or maybe ordinal data, to work well, since the X and Y axes are ordered visual elements. This dataset doesn't have two continuous variables unfortunately - it only has one, the date. However, for the sake of demonstration, I'm going to use the license_number as a continuous variable, and just drop all observations where the license_number can't be turned into an integer.
+
+After making this assumption I'm actually testing to see if the licenses are handed out in chronological order -- if so, I should see a scatter plot of points along a diagonal, indicating that as time increases so too does our `license_number`.
+
+
+```{r}
+# I'm going to make this a new tibble of just the two columns I'm interested
+# in plotting
+license_data <- data |>
+  select(license_issue_date, license_number) |>
+  # Now I want to convert the one column, the license_number, into a number.
+  # Anything that can't be converted will turn into an NA value
+  mutate(license_number=as.numeric(license_number)) |>
+  # Now I'm only going to take those observations (rows) which have no NAs in
+  # them, in either column. I can do this with a filter and some boolean logic
+  filter(!is.na(license_issue_date) & !is.na(license_number))
+license_data
+```
+
+Great, we now have our cleaned data frame and it's roughly 31,000 rows long. Now, this issue of dropping `NA` values is a pretty common one, and here I had to just look at a couple of columns to formulate a query. But what if we had many different columns we would want to inspect for this? Well, base R has a handy function called `na.omit` which does this for us. It's not very fancy at all - it takes our data frame or tibble and returns a new one where the rows kept are only those which have no `NA` values in them.
+
+So lets condense our code a bit.
+
+```{r}
+# I'll just overwrite our license_data
+license_data <- data |>
+  select(license_issue_date, license_number) |>
+  mutate(license_number=as.numeric(license_number)) |>
+  na.omit()
+license_data
+```
+
+There are a few other handy functions in this family, such as `complete.cases`, which doesn't actually delete the rows which have an `NA` but identifies them with a boolean mask. And always, be careful when you are removing `NA` values -- you are changing your dataset and need to be able to reflect that back to stakeholders so they are aware.
+
+Now let's plot this as a scatterplot. In `ggplot` these are called `geom_point` graphs.
+
+```{r}
+# Now I'm going to plot this! We've talked about how ggplot plots are actually
+# layers of plots but we've only worked with one layer. Well, secretly we have
+# actually be working with two layers, the base layer which is created by ggplot()
+# and then the chart we want to render which previously was a geom_col(). The
+# benefit of layers is that the arguments to the base layer are visible to
+# the layers above unless they are intentionally overridden. That means we can
+# provide some of our five elements - like the data, for instance - to just the
+# base layer, and then we don't have to provide them explicitly to following
+# layers.
+ggplot(license_data) + 
+  geom_point(aes(x=license_issue_date,y=license_number))
+```
+Ok, well, I guess we can first conclude that my hypothesis about the relationship between `license_number` and `license_issue_date` is wrong -- lots of licenses with small numbers are issued all throughout the dataset, and then there is a grouping of licenses with big numbers that are also issued across time. More importantly though, this is our first real discussion of the interaction between layers in `ggplot`. It's pretty common to provide your base layer with your data - and sometimes even the X and Y aesthetic mappings - and then layer on specific plots you want to render on top of that. This would be a great time to do a few experiments yourself, actually -- what happens if you provide the aesthetic mappings to the `ggplot` call and then have an empty `geom_point` call? What if you omit the `geom_point` function all together? Do you think you could recreate this plot using the `layer` function I went over previously? I encourage you to pause the lecture, open up RStudio, and check your knowledge.
+
+## Line plots
+
+Another basic plot is the line plot, where individual points in the scatter plot are connected by line segments, letting you get the sense of a trend. I think we're going to want to use some better data for this, so while I'm going to keep using the pet data I'm going to reprocess it so that we have dates along the X axis and we have the number of registrations for a given day along the Y axis.  There are a few ways to do this because this is frequency data! We can go the `dplyr` route where we calculate the frequency for each day, but you've seen a lot of that already. Let's instead go the `ggplot2` route, where we calculate frequencies on the fly in our visualization.
+
+```{r}
+# The data I'll use here will be just our cleaned dataframe but with the species
+# and the date
+line_data <- data |> select(license_issue_date, species)
+
+# Now we can start by putting this data into ggplot and building layers. I'm going
+# to put the data and the aesthetic mapping for the X axis in the base layer,
+# then I'm going to calculate the frequency of a given date by setting the
+# statistics argument of geom_line. This means that the geom_line layer is
+# going to take the data from the base layer and apply a statistical transform.
+ggplot(line_data, aes(x=license_issue_date)) +
+  geom_line( stat="count")
+```
+
+You can see that this shows us there were very few registrations before the year 2020, but afterwards we have this interesting "spikey" frequency of registrations. You can also see how our statistics functions can be useful here, for common stats we don't have to change our data but can allow `ggplot()` to apply functions inline which means you can have layers with the same base data but with different transformations. It also means that you don't have to clutter up your data frame or `tibble` with derivative columns.
+
+I left species in for a reason though - let's check out how this distribution differs among our four animal categories. And at the same time, let's get rid of everything from before 2020 the ggplot way.
+
+```{r}
+# The color is pretty easy for us now, we just set that aesthetic mapping in
+# the geom_line, but to change our x axis we need to explore something new -
+# scales. Remember that inside of a layer we have five items, data, aesthetics,
+# geometries, statistics, and position adjustments. But the grammar also has
+# ways to describe changes that affect all of the layers. In this case, we want
+# to change the bounds of the x axes of all layers so that it is scaled between
+# the absolute values of January 1st 2020 and whatever the natural end of our
+# data is. We do this by adding a scale_x_dates function, and setting the limits
+# between our target date and NA which ggplot will interpret to be the natural 
+# end scale is.
+ggplot(line_data, aes(x=license_issue_date)) +
+  geom_line(aes(color=species), stat="count") +
+  scale_x_date(limits = as.Date(c("2020-01-01",NA)))
+```
+Nice! So we've got a line plot which shows the frequency of pet registrations, by pet type, over time.
+
+## Identifying Trends
+
+A common need with public sector data is to identify trends in the data, for analysis, estimation, and forecasting. Now, trend analysis is a big topic, especially when you start to bring in time series data like we have here. Let's zoom in on a portion of our data, maybe a few months in the summer of 2021.
+
+```{r}
+# I'm also only going to look at Dogs here, for obvious reasons. Also, we've
+# already seen how to scale our data to restrict dates, so we'll reuse that
+# skill but set the end date to September 1st 2021
+line_data |>
+  filter(species=='Dog') |>
+  ggplot(aes(x=license_issue_date)) +
+  geom_line(stat="count") +
+  scale_x_date(limits = as.Date(c("2021-05-01","2021-09-01")))
+```
+
+Ok, we can see a pretty clear trend here, there's all of these spikey points, and some of them seem to be early on in each month. It could be that people submit registrations early on in the month, or that intake forms are only processed at certain times, or that there is a relationship with when people get paid, for instance.
+
+Now, a more thorough discussion of time series analysis would involve something called ARIMA modeling -- Auto Regressive Integrated Moving Average. That's another course or perhaps even specialization on its own, and requires delving more into statistics. I don't want to dissuade you from doing that at all, and I know there are some great courses here on Coursera on the topic. But instead, I just want to note this trend we are seeing and in the next week of the course we'll discuss trends in data a little bit more.
+
+Actually, you have all of the skills now to at least visualize trends like this in data. I think showing a couple of trends with line charts would be a great first assignment for this course!
+
+## Wrapup
+
+We've gone from nothing to creating useful informative visuals in just a week. It might have been a bit intense as there was a lot of theory to learn, but you now have seen how to build column, point, and line plots in ggplot. Moreover you understand how the layers are constructed and conceived of in this layered grammar of graphics. That's pretty significant, it will allow you to explore the documentation relatively quickly to discover different kinds of plots and information visualization techniques.
+
+Along the way we explore a bit more about the R ecosystem, including two new data types - factors and dates - which are common in public policy and social science data. We've also found a few new packages to help us out, the `janitor` and `lubridate` packages for our data cleaning, and `forcats` for dealing with factors especially in `ggplot`.
+
+At this point you might feel a bit overwhelmed, there was a lot thrown at you this week! But we're going to reinforce it over and over again throughout the rest of this course, and your main takeaway really should be that the grammar of graphics gives us a structured - but not magical! - way of describing our information visuals.
