@@ -1,0 +1,263 @@
+# Custom Functions
+
+We've used a lot of functions over the last few weeks and, now that we're starting to write some of our own analytics, it's time to start to create our own functions. I think the PUMS dataset is a great one for demonstration here, as there are a lot of alternative definitions for a dependency ratio, each tuned to a particular question or theme of investigation. File and Kominski (2012) from the U.S. Census Bureau actually posed a number of different interesting approaches to calculating a dependency ratio to reflect some of the underlying social differences we might expect to see in modern life. For instance, is it appropriate to consider people aged 15 through 17 in the U.S. to be workers and not dependents, when the norm is that they are still attending secondary school? Or, does the inclusion of college students in the ratio as "employment eligible" create a false sense of capacity in a community in college towns like in Ann Arbor, MI where I am? And, the structural elements of why someone isn't working are different when they are younger versus, say, retired, so should we create two different metrics to capture this differece?
+
+I like to imagine that, after reviewing the literature and thinking about what they wanted to accomplish, they sat down with someone like yourself and asked for help in doing this kind of analysis. And I think we're capable of it -- we have all of the tools in our toolbox. But, there's a a few more things we can learn about R to do a clean job of this, so let's tackle this problem and learn how to write custom functions in R.
+
+## Writing Functions
+
+A function in R is created using the `function` call. Unlike many other languages we don't name the function when we define it, instead we bind it to a variable. That variable then, becomes the name of the function.
+
+```{r}
+# Let's create our first function, to do this we use function() and assign the
+# result back to a variable name. All of our function code is going to go
+# between the curly braces
+custom_function <- function(){}
+```
+
+So, this function we've created doesn't do anything. But you'll notice the moment we run the line the function showed up in the environment pane in a new space! And if you click on that function RStudio will even show you the definition of the function in a new window.
+
+At a high level there are three things to consider with functions in R:
+1. Functions have parameters and a return value (`formals`)
+2. Functions have some analysis code (`body`)
+3. Functions execute with a context (`environment`)
+
+We've seen lots of examples of the first one. For instance the function `sum` takes in a list or dataframe and returns a number, and function `filter` takes in a dataframe and any number of boolean masks and returns another dataframe. We've also seen where we are going to write the body of our code, it's between the `{}`. But this last item, the `environment` a function operates in, is a bit less clear. Up until this point our `environment` has always been this pane in the upper right hand corner of RStudio, which lists our Data, Values, and Functions. So, what do we mean by an environment, and why is this important?
+
+Well, when you define a function, like we did above, it is bound to the environment you defined it in. This means that the function can access all of the data, values, and other functions in that environment. We can inspect the environment bound to a function to find out its name using the `environment` function.
+
+```{r}
+environment(custom_function)
+```
+
+Here we can see this function is bound to the `R_GlobalEnv`, which is the environment we've been creating dataframes in for the past several weeks. We can actually snoop through different environments in the Environment pane using the dropdown field. Let's see what happens when we bring in the PUMS data into the global environment.
+
+```{r}
+# First we bring in our tidy friends
+library(tidyverse)
+
+# Then we import our data, and I'll do it by calling read_csv within bind_rows
+# so we don't have extra variables hanging around.
+data <- bind_rows(read_csv("pums2019/psam_pusa.csv", 
+                           col_select=c('AGEP','ST'), 
+                           col_types=c(AGEP='c', ST='c')),
+                  read_csv("pums2019/psam_pusb.csv", 
+                           col_select=c('AGEP','ST'), 
+                           col_types=c(AGEP='c', ST='c')))
+```
+
+If we hit the drop down arrow in the Environment pane we can now see that all of our library imports from tidyverse now have their own environments, and we can look through to see what is defined inside of these if we want to. We can even find a function, click it, and see **how** it is written. This is a programming superpower! There's nothing hidden from us anymore -- as we gain an understanding of the R language we can look at other people's code to understand how they did things. Even better, by looking at their code we can see where our own understanding of R is limited, and we can in more into the language!
+
+Ok, I'm getting a bit carried away, let's go back to talking about environments. Because our functions are bound to an environment, they can access data structures in that environment with ease. In our case, we've imported data now, so we could redefine our custom function to use that data.
+
+```{r}
+# I'll just overwrite the function with a new one
+custom_function <- function(){
+  # I'll create some variable called length
+  length<-nrow(data)
+  # And I'll make one called width
+  width<-ncol(data)
+}
+```
+
+You'll see that if you click on the function in the environment pane you're able to see this new definition. 
+
+Now, the function has only been defined, and not run. So R actually hasn't executed the function at all, and thus hasn't called `nrow` or `ncol` or tried to access data. To execute the function we just call it by putting parentheses after our variable name.
+
+```{r}
+custom_function()
+```
+
+The result here seems a bit lackluster. In particular, we don't have the new variables we created, `length` and `width` in our global environment. This is by design, it's called encapsulation, or scoping, and the idea is that whatever is created in the function, stays in the function - it's sort of like Las Vegas. Now, there are ways around this, and the most common is to explicitly have your function return the values you are interested in seeing.
+
+```{r}
+# Let's just add a new line at the end returning our two values
+custom_function <- function(){
+  # I'll create some variable called length
+  length<-nrow(data)
+  # And I'll make one called width
+  width<-ncol(data)
+  # Now we return our two values
+  return(c(length,width))
+}
+
+# And now let's execute (or call, or invoke, they all mean the same thing),
+# our function
+custom_function()
+```
+
+Great, now let's talk about function parameters which are often called arguments. Sometimes you'll want to define your functions in a separate file, so you can include them like other libraries such as `tidyverse`. This allows you to share the functions between projects or with others. However, when we do that, we're no longer bound to the global namespace, so we're going to lose access to the data. And to be honest, usually we want the data to be able to be changed anyways, maybe we'll use this same function to look at PUMS 2020 data, for instance.
+
+So, instead of assuming we have this dataframe called `data`, let's define that to be passed as a parameter.
+
+```{r, error=TRUE}
+# I'm going to call this parameter df, just to prove to you it's different!
+custom_function <- function(df){
+  length<-nrow(df)
+  width<-ncol(df)
+  return(c(length,width))
+}
+
+# And now we call our function
+custom_function()
+```
+
+By now you've noticed that I like to leave errors in to show you what doesn't quite work! You may have even noticed that I put in the code chunk header that an error is coming, and I tell RStudio that when we knit this document this is expected, so it shouldn't stop processing. Regardless, here, RStudio is telling us that the line where we call `nrow(df)` isn't working, and that's because the parameter (argument) to the function named `df` was not passed in! Our function definition is fine, we're just calling it wrong. Let's call it correctly and and pass in data.
+
+```{r}
+# Now we pass in data, the function will receive this as df and should run
+# correctly
+custom_function(data)
+```
+
+Great! I think we've got a working knowledge of how to write our own functions, so lets start using this for data analysis.
+
+# Alternative Analytics for TDR
+
+## Age Adjusted TDR (`tdr_age`)
+
+Let's start by writing a function to calculate an age adjusted total dependency ratio. Lets consider this a more general case of our previous work, but instead of hard coding the age limits we'll let the caller of the function (e.g. the code that's invoking it) decide what the lower and upper bounds of the age ranges should be.
+
+```{r}
+# So we want three parameters, a dataframe (always first!), followed by our
+# lower and upper age bounds
+tdr_age <- function(df, lower_age, upper_age){
+  df <- df |>
+    # Let's add our case to the dataframe passed in with mutate
+    mutate(dependant=case_when(AGEP <=lower_age | AGEP >=upper_age ~ TRUE, 
+                               AGEP <=upper_age | AGEP >=upper_age ~ FALSE))
+  
+  return(sum(df$dependant)/sum(!df$dependant))
+}
+
+# And we'll call this with the same bounds as our last lecture, just to test
+# that it works. Note that I modified this function to always be inclusive of
+# the ages when determining dependants, so we need to set the bottom age to 14
+# and the top to 65
+tdr_age(data,14,65)
+```
+
+Great, this value matches perfectly with our previous work. We now have a very flexible way to determine the total dependency ratio across different age parameters, which will allow us to consider some of the questions File and Kominski raised in their work.
+
+It's important to glance up at the environment pane right now and notice that our `data` variable still only has two columns in it. Inside of our function we took `df` and modified it with mutate and assigned that value back to `df`. When we changed the dataframe R went an made a copy of it, so that we're not modifying the data structure which was passed in. This helps us isolate our work within the function, and we only have to worry about the data we want to `return` at the end of a call.
+
+Now, File and Kominski also suggested that having an __elderly dependency ratio__ and a __child dependency ratio__ would be useful. These actually seem like special cases of the function we just wrote, where each would have just one value. We could write new functions, or we could modify this one to see if the values passed in were `NULL`, and then just "do the right thing". Lets give that a try.
+
+```{r, error=TRUE}
+# So, should we use NULL or NA? Well, in this case we should use NULL. NA is for
+# missing data, but this isn't missing, it's *intentionally* not there as a
+# signal for our function to consider.
+tdr_age <- function(df, lower_age, upper_age){
+  # We have at least four cases to consider, the first is that both values are
+  # a number, in which case we just do what we have already written. We can
+  # check if the values are numeric with is.numeric()
+  if (is.numeric(lower_age) & is.numeric(upper_age)){
+    # copy and past from previous work!
+    df <- df |>
+      mutate(dependant=case_when(AGEP <=lower_age | AGEP >=upper_age ~ TRUE, 
+                                 AGEP <=upper_age | AGEP >=upper_age ~ FALSE))
+    
+  }
+  # if the upper is null but the lower is numeric then we just modify our
+  # boolean masks slightly, and drop the case_when for an if_else
+  else if (is.numeric(lower_age) & is.null(upper_age)){
+    df <- df |> mutate(dependant=if_else(AGEP <=lower_age, TRUE, FALSE))
+  }
+  # deal with the opposite case, where upper_age exists but lower_age is null
+  else if (is.null(lower_age) & is.numeric(upper_age)){
+    df <- df |> mutate(dependant=if_else(AGEP >=upper_age, TRUE, FALSE))
+  }
+  # What do we do if none if they passed in both as null? Or worse, if they
+  # passed in something else like a character vector? Well, we want to generate
+  # an error and tell R that this is an exception we don't understand.
+  else{
+    stop("One or both of lower_age or upper_age must be a numeric or null but not both!")
+  }
+  # For any call that made it this far, we just return our usual sum
+  return(sum(df$dependant)/sum(!df$dependant))
+}
+
+# Two ages
+tdr_age(data,14,65)
+# Just lower
+tdr_age(data,lower_age=14,upper_age=NULL)
+# Just upper
+tdr_age(data,lower_age=NULL,upper_age=65)
+# Something weird
+tdr_age(data,lower_age=c('fourteen'),upper_age=c('sixty five'))
+```
+
+Wonderful! The error at the end was expected, and returned a reasonable message to the caller - we have covered all of the combinations we're interested in. Now, let's write a couple of shadow functions -- functions that are just going to call this general function with hard coded parameters -- to represent the three different calculations File and Kominski were interested in. This makes it so other people don't have to call our more generic function if we want to share this.
+
+```{r}
+# I'm going to create the three functions and put in front of it fnk for File
+# and Kominski. First up is the age adjusted function.
+fnk_age_adjusted <- function(df){
+  return (tdr_age(df, 18, 65))
+}
+# Now the elderly
+fnk_elderly <- function(df){
+  return (tdr_age(df, lower_age=NULL, upper_age=65))
+}
+# Now the child
+fnk_child <- function(df){
+  return (tdr_age(df, lower_age=18, upper_age=NULL))
+}
+# Now lets use the standard version Dr. Lantz introduced us to
+tdr <- function(df){
+  return (tdr_age(df, lower_age=14, upper_age=65))
+}
+```
+
+After running these we can see in the environment pane our hard work - our first analytics API, where we have four different ways of calculating the total dependency ratio!
+
+## Testing our Alternatives
+
+The natural next question for us to ask is, what does this look like when we apply it to individual states? Will we see any differences in these new ratios between those top three states, Maine, Florida, and Montana? Pause the video for a moment and try and generate a hypothesis as to how each of these new metrics might change the ordering of states.
+
+Well, I've got my hypothesis. So lets give it a try, and I think you'll agree that making these functions makes the whole data exploration task much easier!
+
+```{r, error=TRUE}
+# The beauty of summarize is that we can use it with many different functions,
+# so we can create our dataframes in one go. First we pipe our data to group_by
+data |> 
+  group_by(ST) |> 
+  # Then we just send this to summarize()! We don't have to make our functions
+  # group aware, summarize is going to do multiple calls to the function for us,
+  # once for each function/group combination. Even better, summarize() is going
+  # bring all the results back to us in a tibble form
+  summarize(tdr=tdr(),
+            fnk_age_adjusted=fnk_age_adjusted(),
+            fnk_elderly=fnk_elderly(),
+            fnk_child=fnk_child()) |>
+  arrange(desc(tdr))
+```
+
+Programming and data analytics can be challenging, especially while you're learning. We have some kind of bug here. Reading this error message from R it looks like when processing the very first group and the very first call to `tdr` an error was thrown because the `df` parameter was missing. When we tested everything we passed in our data explicitly, by calling the function with a parameter like `tdr(data)`. But if we look at our code here, we aren't doing that, we're passing in nothing.
+
+It's a bit confusing as to what we want to pass in, actually. We don't want to send in all of the `data`, because we are trying to do this in a group-by-group manner. We just want to pass in the first group of data the first time, then the second group of data, and so on. But, how do we do this inside of the `summarize` function?
+
+Well, when this happens don't get discouraged, it's part of the learning process. The key here is to realize that it all comes down to the `environment`. The `summarize` function has its own environment, it doesn't share our global one which is bound to our function. And our function is not aware of the `summarize` or `group_by` environments. However, `summarize` does have a function available to it called `cur_data`. Let's check out the help.
+
+```{r}
+?cur_data
+```
+
+Ok, so `dplyr` makes these functions available to us so we can "peek" inside of an operation and reference some of the internal structures. So it looks like we want to be passing in `cur_data` as the current group when we are working within a `group_by`. I feel like we're close, lets just make a quick change!
+
+```{r}
+data |> 
+  group_by(ST) |> 
+  # Now with cur_data()!
+  summarize(tdr=tdr(cur_data()),
+            fnk_age_adjusted=fnk_age_adjusted(cur_data()),
+            fnk_elderly=fnk_elderly(cur_data()),
+            fnk_child=fnk_child(cur_data())) |>
+  arrange(desc(tdr))
+```
+
+# Wrap up
+
+Ok, this lecture started off deceptively simple but we did a fairly thorough review of how functions work in R and how to write our own functions. We put these skills to work writing easy to read and reusable functions which we were able to apply to real datasets. I think now is a good time to pause for a moment and look back -- the first lecture I gave to you about R started with variable assignment and we slowly built up from there. Now you have the ability to wield `dplyr` to take those raw CSV files and turn them into knowledge, selecting, filtering, mutating, and grouping data all while building custom functions of your own in a highly readable manner.
+
+So, what else is there? Where do we go from here? Well, remember that the tidyverse has eight packages in it, and we've really only use one of them. Our next big stop will be in the following course, and we're going to go to the wonderful work of information visualization. I'm looking forward to seeing you and diving into `ggplot`.

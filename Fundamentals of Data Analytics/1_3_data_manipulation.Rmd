@@ -1,0 +1,153 @@
+# Data Manipulation with the Tidyverse
+We're going to take this Behavioral Risk Factor Surveillance System (BRFSS) data from 2020 and do some data manipulation and analysis. To do this, I want introduce you to the world of the **tidyverse**, a series of libraries written for R that that have become so highly used many people use nothing but the tidyverse for their analyses.
+
+## The Tidyverse
+The tidyverse is a series of eight __opinionated__ R packages which extend the capabilities of the Base R functionality you've already seen. They are called opinionated because they seek to have you conform your analysis style and data shape to the programming interfaces they provide. There are eight packages in the tidyverse:
+
+1. ggplot2: A system for creating graphics within R based on a layered **Grammar of Graphics**, a design philosophy for composing charts and graphs. This is one of the most popular libraries for R, and the syntax for ggplot (usually we drop the "2" from the name) is quite unique. We will be using ggplot significantly throughout this specialization, starting in the next course.
+2. dplyr: A toolbox of functions for cleaning data, allowing us to filter and clean datasets in a way which is much more readable and faster to write. This is the main toolkit we will be exploring in the rest of this course.
+3. tidyr: Functions to help you align your data into a consistent form. We'll end up using a bunch of these functions throughout the specialization.
+4. readr: Mechanisms to read in tabular data across a variety of different file formats. One of the challenges in working with public data is that a lot of datasets are available only in formats that Base R can't handle, and readr provides some (though not all!) functionality for other kinds of datasets.
+5. purrr: A set of functional programming tools for R. One of the benefits of being a vectorized language is that R can be quite fast **and** easy to read, and purrr helps improve this by allowing us to more succinctly write code instead of loops. While purrr is very interesting we won't end up using it much in this specialization.
+6. tibble: A replacement for the R dataframe structure. Fear not, tibble builds on top of dataframes so you don't lose the knowledge you already have! Instead it helps give you feedback on errors before they effect you. We'll use tibbles throughout this course and future courses, but I'll generally just refer to them as dataframes as they are conceptually close enough for our work.
+7. stringr: Functions to manipulate strings. Often in public data we get fairly well-cleaned datafiles, and don't need to do string parsing. However, when we deal with data coming from the web, or data produced through optical character recognition (OCR, often called scanning), this library is invaluable.
+8. forcats: A suite of tools for dealing with categorical variables in R, instead of just strings and integers. We'll use this a bit throughout the specialization as we work to better categorize and visualize our data.
+
+For each of these libraries the authors have provided "cheatsheets" as well as online documentation to support your use of them, and I've linked some of this in the course shell for you.
+
+Let's load the tidyverse package in our first code chunk. You'll notice I've provided a label, or name, for this code chunk. It is customary to label some code chunks for setup and plotting. This allows RStudio to be smart about not re-loading libraries and naming file outputs. You can label a code chunk by adding a comma and a single work on the first line of the chunk.
+
+```{r, setup}
+library("tidyverse")
+```
+ 
+One of the things you'll notice when we import the tidyverse packages is that R reports back the version of each package loaded as well as any conflicts. A conflict exists when two packages are loaded but they have functions with the same name. We can see that on my machine the dplyr package conflicts with the stats package, and it masks (or replaces) the functions `filter()` and `lag()` with new ones. This is ok, we can still access the functions inside of `stats` if we want to, we just need to tell R that we want to use the one within the `stats` package by saying `stats::filter()`. This is called namespacing.
+
+## Getting Started with BRFSS Data
+### Loading the Data
+The data from the BRFSS has been provided in the SAS data file format. This format isn't native to R - it's a proprietary binary data format. SAS data is quite common in public administration, and we can use the `foreign` package to load this into a dataframe.
+
+```{r}
+# Load the foreign package which will create a new function call read.xport()
+# for reading in SAS data
+library("foreign")
+# Now load the data into a dataframe. We can pass in the parameter fill to
+# indicate that we want missing data filled with NA values
+data <- read.xport('LLCP2020ASC/LLCP2020.XPT', fill = NA)
+```
+
+I want to demystify how I got to this point though because, honestly, I don't use a lot of SAS data in my own work. When I was on the website and noticed it was in SAS format I had to do a little sleuthing to figure out how to get things going in R. But you don't even have to leave RStudio for this! I just hit the packages tab in the files pane and searched for SAS. I saw a few packages and clicked through to the `foreign` one. I looked around the functions and read the docs, and this is all made possible by CRAN, the central R repository. Once I decided to give it a try I just installed the package from within RStudio. If you already work with different data formats take a minute now to explore the RStudio package interface and see what is available.
+
+### Exploring the Data
+We can see from the environment tab that this data is huge - almost half a million observations over nearly 300 different variables. It's always good to look through your codebook and get a sense for what the different data means. For instance, in this dataset we have a variable called `_PSU` which seems to be a sequence number unique to this dataset within a given year. But if we try and look at, say, the first ten values of that variable, we run into a problem.
+
+```{r, error=TRUE}
+# Remember that we can use $ to pull out a single column, and [1:10] to look at
+# the first ten items in that vector
+data$_PSU[1:10]
+```
+
+The problem here is that the variables in our codebook - and our datafile - are not all well formatted for R. R variables must begin with a letter, not an underscore, so these values have been renamed automatically for us by our `read.xport` function to start with the letter `X`.
+
+```{r}
+# Let's look at that data again, putting an X in front of the variable _PSU
+data$X_PSU[1:10]
+```
+
+Now, in this dataset, two columns represent sequence numbers, and we don't really need these for this investigation. We saw previously that we can get rid of the rows by specifying their numeric location in `[]` and putting a `-` sign in front. The `dplyr` package actually makes this even easier: it provides a function called `select()` which allows you to refer to columns by name, including allowing us to drop columns with a negative sign. Let's get rid of those two variables.
+
+```{r}
+# We just pass in the dataframe we want to work with followed by the list of
+# column selections we want to consider
+data <- select(data, -SEQNO, -X_PSU) 
+```
+
+Now, for people with a programming background in pretty much any language, this is sort of a weird looking function. If that's you, keep in mind that object patterns in R often look quite different than in other languages, and because of that almost everything is a function which takes a data structure as its' first value, and returns a modified version of that data structure. Also common in R is to see an arbitrary list of arguments -- in this case two exclusion criteria -- instead of a single argument as a list of values.
+
+In most of our work in this course, we will continually call functions with the first argument being our `data`, and we would assign this back to the variable `data` to make a modification. This pattern of `data <- function(data , ... )` gets really tiring to write, so a new operator was added to the R language in 2021 called the *pipe operator*. And it's really, really cool.
+
+### Pipe Operator
+
+The pipe operator was first introduced in the library `magrittr` and, after many years of use by a huge number of packages it was formally added to the Base R language, albeit somewhat changed. The operator is denoted by the two characters a vertical bar and a greater than sign, `|>`, and it takes the variable on the left hand side of the operator and passes it to the function on the right hand side of the operator as the first argument. So the code `some_function(data, x)` becomes `data |> some_function(x)`. This might not seem like a big win, until you you realize that you can then chain multiple functions together without having to see parentheses within parentheses.
+
+To demonstrate the pipe operator I want to introduce you to the `filter` function from `dplyr`. The filter function allows us to take a dataframe and specify a number of different boolean masks to apply to it.
+
+```{r}
+# The BRFSS has a variable, LCSFIRST, which stores the response to the question
+# "How old were you when you first started to smoke cigarettes regularly". Page
+# 91 of the codebook indicates that there can be a number between 1 and 100,
+# or a value of 777 if the individual didn't know, 999 if they refused to answer,
+# or just blank (which we converted to NA through read.xport()) if they were not
+# asked or it is missing for another reason. If we want to quickly calculate the
+# mean age people reported they started smoking, we can apply a few different
+# boolean masks:
+data |> #take out bad data
+  filter(!is.na(LCSFIRST) & LCSFIRST!=777 & LCSFIRST!=999) |>  
+  select(LCSFIRST) |> # just get the column of interest
+  unlist() |> # convert to a vector
+  mean() # calculate the mean
+```
+
+Ok, that's gotten more complex, but lets walk through it line by line. First, we take our dataframe called `data` and we pipe it to `filter`. With `filter` I've setup three boolean masks, one which makes sure the value isn't an `NA`, another which makes sure the value isn't a `777`, and a third that makes sure the value isn't a `999`. I pipe the output of `filter`, which is a dataframe, to `select`. With `select` I am, just interested in one column, since I'm only going to calculate a mean value. So I provide the column name as an unquoted string. Now, `select` is a bit funny because it returns a list instead of a vector, even though everything in that column *should* be a double value. So I need to use a base R function called `unlist` to convert it from a list into a vector. Then I just pipe that to the `mean` function. Despite this all being one expression, I can comment individually each line after the pipe, which is pretty nice.
+
+Pipe's are pretty fundamental to how modern R programming is done, so you'll see me use them throughout this series and, frankly, you'll see them in nearly every example on the web.
+
+### Adding variables
+We don't just have to pull variables out of a dataframe, we can also add new ones. In tidyverse the function `mutate` creates and modifies columns in a dataframe. For example, in our data dictionary we have a variable for the number of children in the household (`X_CHLDCNT`, page 144). If we want to turn this into a new column we can do so in the dataframe using conditional values. The tidyverse has built-in functions to help!
+
+```{r}
+# Here's an example of creating a new column, chld_cat, which contains values
+# depending on what is in the X_CHLDCNT column. Let's start by just creating a
+# new column for whether they had children or not
+data <- data |>  mutate( child_cat = if_else( X_CHLDCNT == 9 | 
+                                              X_CHLDCNT == 1, 
+                                              FALSE, TRUE))
+```
+
+The `mutate` function takes the name of the column to create and sets it to some value. In this case we're using the `if_else` conditional function from the tidyverse to check whether the `X_CHLDCNT` value is a 9 (missing) or a 1 (no children) and, if so, return `FALSE` for this new column value. If that statement does not evaluate to true then they did have children, so we return `TRUE`.
+
+Now, you've already seen most of this but just might not recognize it in this form -- this is boolean masking! That `if_else` statement's first condition is the mask, and the next two items are whether to emit a value of `FALSE` or `TRUE`. So the result of running the function `if_else` is a new full column of data, which `mutate` then assigns to a name, in this case `child_cat`.
+
+We don't have to limit ourselves to just one conditional check or to just boolean values. For instance, what if we wanted to set the value of this new `child_cat` column to a string description for a couple of different thresholds, perhaps to match with a different dataset? We can use the `case_when` conditional function to handle this more complicated mutation
+
+```{r}
+# We'll just overwrite our previous data values
+data <- data |> mutate(chld_cat = case_when(
+  X_CHLDCNT <= 2 ~ "One child",
+  X_CHLDCNT <= 6 ~ "More than one child",
+  X_CHLDCNT == 9 ~ "Don't know/Not sure/Missing"))
+head(data$chld_cat)
+```
+
+The beauty of mutate is that we can pass in any `name` and set it to any vector which is the same length as our dataframe, and now we have a new column. If we want to work on a statement outside of `mutate` though, we need to make sure we reference our variable `data`, since the `mutate` function is the one which makes the variables in the dataframe available to the `if_else`.
+
+```{r}
+# As a quick example, if we just copy and paste the previous if_else statement
+# we tried it won't work, instead we need to reference into the dataframe
+if_else( data$X_CHLDCNT == 9 | data$X_CHLDCNT == 1, FALSE, TRUE) |>
+  head(10) # pipe this to head() so we only see ten first rows
+```
+So the `mutate` function will allow us to change a variable in our dataframe, and we can do so using an `if_else` function or a `case_when` to match a few different kinds of patterns. This all feels pretty natural too, since we just say which column we want to change through an equals sign, and then we can use our usual set of boolean comparisons to make choices. And while these are two common functions we might use, we can use any function we want to as long as the result is a vector which is the same size of our dataframe.
+
+But we should go back to the `case_when` statement and talk about that little tilde `~` I snuck in there.
+
+### Formulas in R
+
+The tilde character, `~` is an operator in R, just like `+`, `-`, `$` and more. However, this operator is expected to denote a **formula**. In general, the tilde will separate a lefthand side from a righthand side like most of the other operators, however the lefthand side is optional so sometimes you won't see it at all. The meaning of the operator is completely dependent on the context of its use (like all R operators), and this can change quite a bit between different functions. So in this case, we need to look at the documentation for the `case_when` function, to see what it's expecting to do with formulas.
+
+```{r}
+# And remember, we can get help on almost anything with just a question mark!
+?case_when
+```
+
+If you look through the help pane you'll see that `case_when` takes in three dots as an argument. In R this is called the dot-dot-dot argument. All this means is that you can have any number of arguments, and they will all be handled by the function you have called as it sees fit. The arguments section of the help page gives a bit more information about how `case_when` is going to handle arguments, and indicates that each one should be a formula (so it must have a `~`) and that the lefthand side must be a logic vector (boolean mask!) and the right hand side will be the replacement value to be use for `TRUE` values. Importantly, the documentation also tells us that we don't have to cover all cases, as any value which isn't handled by a specific case will be returned as an `NA`.
+
+As you've seen, operators in R are highly context-specific, and the formula operator is no different. While much of the work you might do in data analytics will be with more traditional mathematical formulas, the formula operator really just allows you to describe a relationship - in this case between a boolean mask and an output value - which a function can then decide how to handle.
+
+## Wraup up
+
+Ok, we went through a lot here in our first look at the BRFSS Data. We learned that the tidyverse is a big collection of different packages, and spent a fair bit of time learning the fundamentals of one of these `dplyr`. In particular, we saw that we can use `filter` to get certain observations (rows) out of our dataframes, `select` to get specific variables (columns) from our dataframes, and `mutate` to create new columns in a dataframe. All of these methods make heavy use of boolean masking to do this.
+
+We also explored two new language fundamentals. The first, pipes `|>`, allows us to easily chain multiple operations together. Now in this course we're using the new pipe symbol, `|>` which was just added to the base R language, and pipes are very common throughout the R ecosystem. As you browse books and online documentation you'll often see the pipe symbol `%>%` from the `magrittr` packaged used. For most of our discussion in this course these are equivilent, though underneath they are quite different and I expect that the new built-in pipe syntax will become prevalent in a few years. In addition to pipes, we explored the formula operator, tilde `~`. We learned that this operator is highly context specific, and that it's make up of three parts, a lefthand side (optional!), the operator, and a righthand side. Our friend here is looking at the docs in RStudio with the `?`, which allows us to explore how the package we are using is planning to actually use the formula we created.
+
+There's a lot more to the tidyverse that we're going to explore, but we have a bit more work to do with `dplyr` first, and we'll dive into that next.

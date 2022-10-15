@@ -1,0 +1,142 @@
+# Creating Custom Analytics
+
+In this weeks' lectures you learned about a few different common population metrics which are used by social scientists and public data analysts to inform public policy, and we're going to build on that and see how we can apply these to raw data. For this lecture I'm going to use the 2019 American Community Survey Public Use Microdata Sample (PUMS). This is a cross-sectional survey of American households and communities that is provided in a raw **microdata** format. It represents 1 and 5-year samples of over 3 million American households -- 1% of the total population -- across demographic, economic, social, and housing dimensions to collect good population data in between 10-year censuses. What the U.S. Census Bureau has done is take the ACS household survey data make it available for public use and analysis. It's as close to raw data as you can get in public datasets. It. This is the kind of dataset that researchers like Dr. Lantz use in their policy research work.
+
+Now, PUMS is huge -- not just in the technical sense (but it is, covering nearly 300 variables) -- but also in the complexity of the process of how data is captured, recorded, and weighted, and the breadth of social context that is included in the variables measured. The PUMS dataset is used to support over 300 federal indicators within the government and inform nearly \$700 billion dollars of public spending each year. I can't do PUMS justice here in this lecture, but the U.S. Census Bureau has an amazing set of open resources to help data analysts both within the federal government and around the world. These resources include examples, tutorials, and recorded webinars and presentations, and I highly suggest checking them out -- I've put a link to the Census Academy website in the course shell.
+
+My goal in this lecture is to show you how we can create some custom analytics, like the Total Dependency Ratio (TDR), using this kind of data. Of course, I think along the way I have to show you a few more things about R and tidyverse, so let's dig in.
+
+```{r}
+# My first step will be to bring in our tidyverse library. Since we are using
+# the CSV files provided by the Census Bureau we don't need another package to
+# import, we'll be able to use read_csv()
+library(tidyverse)
+```
+
+## Reading in Big Data
+
+Now, it turns out that these files are huge in the technical sense as well! Because of this they are distributed as two files at more than a gigabyte in size each, and you need to concatenate those files together in order to get one dataframe to work with. However, 2 gigabytes of data is too big for many analysis needs, and we don't need all 300 variables, so it makes sense for us to only import the variables we need. For this, we're going to want to pass some parameters to `read_csv`.
+
+```{r}
+# read_csv takes a number of different parameters, and you can check these out
+# by using ?read_csv in the console. I'm going to use the col_select to pull out
+# just a few columns for us to start with, the age (AGEP) and the state (ST)
+# indicators
+data1 <-read_csv("pums2019/psam_pusa.csv", col_select=c('AGEP','ST'))
+data2 <-read_csv("pums2019/psam_pusb.csv", col_select=c('AGEP','ST'))
+```
+
+We see that we get some information back about the import here, specifically that we have about 1.5 million rows in each dataframe, and that there are two columns. Now we need to concatenate these two dataframes together. We can use the dplyr `bind_rows` function to do this.
+
+```{r, error=TRUE}
+# Let's concatenate those dataframes
+data <- bind_rows(data1, data2)
+```
+
+Whoa, an error! Let's parse this a bit. It sounds like the main issues is that the column `ST`, our state variable, can't be combined because it is of a character type in the first dataframe but a double type in the second dataframe. Let's take a look at these.
+
+```{r}
+# Let's investigate those dataframes
+data1$ST |> unique()
+data2$ST |> unique()
+```
+
+So, are these characters, or numeric values? Well, the answer is "yes". This is a common issue, where zero padding is used for numeric values so that each column takes up exactly the same number of characters in a datafile. So the characters "01" will be the same length as the characters "52". This is done for a few reasons, but at this point it's mostly historical and has to do with how data can be read consistently by position instead of having to be parsed with rules as is common with CSVs. Actually, CSVs are a bit of a plague on the data science workflow, because they lack consistency and a schema, or a definition of the data. Now, most data isn't stored in a CSV format, and instead lives inside relational databases. But CSVs are still used widely - perhaps I would go as far as to say universally - as a data interchange format. There are some interesting projects to try and end this frustration, and one of them, which was called **feather** and now has grown into a set of formats led by the Apache foundation. Feather was actually co-developed by one of the big names in the R ecosystem, Hadley Wickham, who joined with one of the big names in the python ecosystem, Wes McKinney.
+
+That's a bit of a digression, we still live in a CSV world, and we have to deal with this issue, which is to either represent our data as numerics or strings. Now, I'm going to choose strings, because the codebook says they should be strings. So given that, how do we do this? The easiest way is to go back to that `read_csv` documentation. If you do that you can see in there that we can set the types of columns with the `col_types` parameter.
+
+```{r}
+# Let's try importing again, we'll set both columns to 'c' for character vectors
+data1 <-read_csv("pums2019/psam_pusa.csv", col_select=c('AGEP','ST'), col_types=c(AGEP='c', ST='c'))
+data2 <-read_csv("pums2019/psam_pusb.csv", col_select=c('AGEP','ST'), col_types=c(AGEP='c', ST='c'))
+
+# And let's try and bind them again into one dataset
+data <- bind_rows(data1, data2)
+```
+
+You can see why it's useful to have some of that grounding in datatypes that we talked about in the first few lectures of this course. We can actually get pretty far in R without having to know the inner workings of the language, but sometimes it's important to help us debug a problem.
+
+## Calculating the Total Dependency Ratio
+
+Now that we have a single dataframe we can work on calculating the total dependent ratio. Recall the formula that Dr. Lantz shared in her lecture, we take the number of people who are aged less than or equal to fourteen and the number of people who are ages above 64 and add these together. These are considered dependents, as they are not expected to be working. We then divide that by the total number of people in the population who are expected to be working. In R Markdown we can actually write this as an equation to make it show up in our knitted document in a nice manner, here's that equation:
+
+$tdr = \frac{(age\le14+age\ge64)}{(total\_population-(age\le14+age\ge64))}$
+
+This is called latex, and it's another topic altogether, but I thought I would show it to you. You don't need to know latex or much math for this analysis as the equation is pretty straight forward. You'll notice that here I've rewritten the denominator (bottom) to be the total population minus the dependents -- this is just easier to write in an equation than define the number of people working, but the value is the same.
+
+Let's apply it to the data.
+
+```{r}
+# I'm going to create a new category of whether someone is a dependent or not
+# with mutate()
+data <- data |> 
+  mutate(dependant=case_when(AGEP <=14 | AGEP >64 ~ TRUE, 
+                             AGEP <=64 | AGEP >14 ~ FALSE))
+
+# Now I can just count how many people are in that group and do the math
+num_dep <-data |> filter(dependant==TRUE) |> nrow()
+num_work <- nrow(data)-num_dep
+
+# And calculate the ratio by looking at the total size of data
+num_dep/num_work
+```
+
+So with this dataset we get a total dependency ratio of 0.47. Now, we can actually write this a bit more succinctly without the use of `nrow`. Historically boolean values of `TRUE` and `FALSE` have been represented as `1` and `0`, and R is a language with lots of history. This encoding allows boolean values to be stored in single bits, so it's super efficient, and then bit masking can be used just like boolean masking. I'm not going to dive into that -- that's a different series -- but it means that underneath you can manipulate `TRUE` and `FALSE` values as if they are integer values in R, and this makes counting them very very easy.
+
+```{r}
+# We can simply sum the two different sets of people and divide in a single line
+# without the need to create any intermediate variables
+sum(data$dependant)/sum(!data$dependant)
+```
+
+Ok, great, we've created our first custom statistic and run it on a real dataset! Feel proud, there was a lot of R to learn to get here, but by this point I'm pretty confident you have the tools you need to get data out of a dataset and start doing your own analytics on it.
+
+## Applying Custom Analytics to Groups
+
+Let's go a level deeper. I left state in here for a reason -- wouldn't it be interesting to see which states has the highest or lowest total dependency ratio levels? This could have significant implications for job stimulus funding, or education and health care expenditures. Is the ratio pretty equal across all of the states, or are there differences between states?
+
+We already have the tools we need to do this work. We know we can use `group_by` to create groups of data, and then we can run aggregation statistics on these with the `summarize` function. In fact, our recipe calls for us to have a categorical value we want to group on and we already have that in `ST`. So let's give it a try.
+
+```{r}
+# Let's pipe our data into group by with state
+tdr_data <- data |> 
+  group_by(ST) |> 
+  # Now let's create two new variables, one for the top of the equation
+  # (numerator, our dependents) and one for the bottom (denominator, or 
+  # working eligible individuals)
+  summarize(num_dep=sum(dependant),
+            num_work=sum(!dependant))
+
+# Now we can create a new column in tdp_data with our ratio
+tdr_data <- tdr_data |>
+  mutate(tdr=num_dep/num_work)
+
+tdr_data
+```
+
+Awesome, we have calculated the TDR for each state. Now we can sort this data using the `arrange` function and just indicate which variables we want to sort by. In this case I want to see the `tdr` in descending order, and find out which state has the fewest working aged people in it (as a ratio).
+
+```{r}
+# Let's pipe our data into group by with state
+tdr_data |> arrange(desc(tdr))
+```
+
+A quick check of the codebook says that Maine is the the top one, state number 23, and that Florida is at position 2 followed closely by Montana at position 3.
+
+## Streamlining Our Solution
+
+Now, I'm not totally satisfied with our solution. It's nice, but having to create this intermediate data frame that we then do further manipulations on isn't ideal. We have all of the information encoded in each group, we should just use this to create our `tdr` and sort in one statement
+
+```{r}
+# Let's do some copy and paste and rewriting
+data |> 
+  group_by(ST) |> 
+  summarize(tdr=sum(dependant)/sum(!dependant)) |>
+  arrange(desc(tdr))
+```
+
+Ok, much better. It's simple, easy to read, and doesn't seem so magical once we have worked through all of the logic.
+
+# Wrap up
+
+In this lecture we built our first custom analytic using real data, and we put our understanding of the total dependency ratio into practice and identified the top three US states with high ratio levels. Beyond that, we got to experience some solutions for dealing with large datafiles - and PUMS is certainly a large datafile! - and turbocharged our ability to use `read_csv` and recover from errors. We also learned a new function from the tiyverse, `arrange` which lets us sort our dataframes for nice output. Along the way I exposed you to latex, specifically a method of writing equations in R Markdown documents, which allows us to embed in our notebooks a human readable mathematical equation to go along with our analysis code and outputs.

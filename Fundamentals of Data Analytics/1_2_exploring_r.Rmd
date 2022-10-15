@@ -1,0 +1,204 @@
+# Exploring R Dataframes
+
+## Working with Real Data
+
+Throughout my teaching I like to use real and authentic datasets wherever possible, and in this course we'll be using a variety of different sources for data which relate to issues of interest in the public sector. I'm going to start with a piece of data that is very near to my own research work: Higher Education Data in the United States. Specifically, we're going to look at some of the Integrated Postsecondary Education Data System (IPEDS) datasets. These datasets are created annually and cover twelve different topics relevant to the performance of colleges and universities in America, from enrollment and library information to graduation rates and financial aid.
+
+We're going to start by looking at the admissions data reported for 2020.
+
+```{r}
+# We're going to read in the data from a CSV file. To do this we're going
+# to use the base R function read.csv(), which returns a dataframe
+admissions_df<-read.csv("adm2020.csv")
+```
+
+## Selecting Data from Dataframes
+
+A dataframe is a special kind of object in R and one that we'll use almost exclusively for analysis. You can think of a dataframe as a spreadsheet, it is made up of columns which are vectors (so each column has a single data type!) and rows which aggregate values across columns. Because of R's tradition as a language for statisticians, the columns are referred to as variables, and you can see in the environment pane that this dataset happens to have 68 different variables in it. Importantly, columns have labels, and R's `read.csv` function is smart enough to pick up the first row of the file and use these labels as the names of our columns.
+
+```{r}
+# We can see a list of the different columns in the data set by using
+# the colnames function
+colnames(admissions_df)
+
+# By turning these into named items in the dataframe, we can extract a single
+# variable (column) from our dataset using the $ operator. For instance, if we
+# want see see the total number of students who applied we look at APPLCN
+total_applications<-admissions_df$APPLCN
+```
+
+Rows are different than columns in R in a few ways. Firstly, they don't represent some variables in the world, but instead are called **observations**, and generally refer to an entity in the world which has many different variables. In this case, we have nearly 2,000 observations, each one being a college or university in the US. In addition, rows don't always have names, and that's true for this dataset. This means we can't use the dollar sign to extract a row, and instead we use the subsetting notation `[]` to pull out the rows we are interested in. This also means that the ordering of rows matters - when you load a dataframe you can be assured that R isn't going to shuffle rows around underneath (unless you tell it to). Finally, because rows can span across multiple columns, they may have data of many different types, which means they won't be extract as vectors, but instead be extracted as lists or dataframes.
+
+```{r}
+# Let's extract the first observation/row in this dataframe. In this data, each
+# row is a single institution
+first_row<-admissions_df[1,]
+```
+
+Reflect on that code for a moment, do you see the comma `,` I snuck in there? Let's talk about that. When you use the subsetting operator on a dataframe you actually have some choices you can make, and R allows you to select rows in this way, or columns, or both! So the syntax is important here: in the general form, we can select a column by its position with `[colnum]`, we can select a row and column combination with `[rownum,colnum]` and if we want all columns we just leave `colnum` blank. And, we can connect this with the slicing notation showed earlier, so we can do `[rownumstart:rownumend,colnumstart:colnumend]` to pull out some chunk of the dataframe in one operation! Let's look at some examples
+
+```{r}
+# Let's pull out the first ten institutions
+first_ten_unis<-admissions_df[1:10,]
+# Now let's pull out only the last three columns of the dataset
+last_three_columns<-admissions_df[,66:68]
+# Since we have the names of those last items, we can use those too if we want!
+last_three_columns2<-admissions_df[,c("ACTMT25","XACTMT75","ACTMT75")]
+```
+
+Nice, we have lots of different ways to pull out data, and we can use names for columns and numbers for rows, and we can select various chunks of the data as we might want to. R has a few more tricks up its sleeve for selecting out data though! One of the most unique ones is that you can use negative numbers to exclude a column.
+
+```{r}
+# Let's pull out all columns except the first and third on
+some_missing_columns<-admissions_df[,c(-1,-3)]
+```
+
+Now, this can get a bit confusing if you're new to it. You've got positive and negative numbers, two positions, sometimes a vector and sometimes this other format with a colon, how do you keep it all straight? First, the colon is simply a short hand notation, and the result of using the colon is numeric vector. Take a look:
+
+```{r}
+# Just make a vector of numbers one through ten
+print(1:10)
+```
+
+```{r}
+# R is equally well set to create vectors of negative continuous numbers
+print(-1:-10)
+```
+
+Next, **generally**, but certainly not always, you'll use the dollar sign `$` to refer to columns by name if you only want one, or you'll put the names for the columns a combine function `c()` and only select out the ones you want. It's less common to select by the position of the column.
+
+## Practicing our Selecting
+
+Now, let's take a break from the formal discussion and instead actually do a bit of analysis with this dataset. For this we are going to use some built in functions in R. First up, let's take a look at how many student applications across all schools were made.
+
+```{r}
+# We can use the sum() function to add up a vector of numbers
+sum(admissions_df$APPLCN)
+```
+
+So in this year we have over 11 million applications in total! Wow! We can also look at the ratio of men to women by calculating those sums independently and then dividing. The number of applicants who identified as male are stored in column `APPLCNM` while the number of applicants who identified as female as stored in column `APPLCNW`. In this dataset there is only a binary gender distinction.
+
+```{r}
+# We can use the sum() function to add up a vector of numbers
+sum(admissions_df$APPLCNM) / sum(admissions_df$APPLCNW)
+```
+
+This little bit of investigation lets us think about posing some questions. For instance, who follows through with actual enrollment in the institution, and what do those demographics look like? We have a few more columns of data which can help answer this, for instance `ENRLM` are the number of men who enrolled at an institution (full time or part time), while `ENRLW` are the number of women who enrolled. Similarly, `ADMSSNM`are the number of students who were identified as male who were admitted to the institution, while `ADMSSNW` are the number of women admitted.
+
+Reflect for a moment on the questions you could ask of this data, what would you look at?
+
+For me, I was surprised that male applicants were fewer than female applicants overall. By dividing these sums we see that for every 100 female applications there are only 74 male applications. Are males more selective -- they apply to fewer schools -- than females? Are women more likely to apply to college in the United States and, if so, does this translate into more acceptances too?
+
+```{r}
+# I want to keep practicing our selecting to try and answer some of these. First,
+# lets calculate the ratios of men to women across the three variables of application
+# admission, and enrollment. The easiest way to do this is to copy and paste the
+# line we wrote previously
+application_ratio<-sum(admissions_df$APPLCNM) / sum(admissions_df$APPLCNW)
+admissions_ratio<-sum(admissions_df$ADMSSNM) / sum(admissions_df$ADMSSNW)
+enrollment_ratio<-sum(admissions_df$ENRLM) / sum(admissions_df$ENRLW)
+
+# Now we can print them out in one string. For this we use the paste0 function.
+# This function converts all of its arguments to character vectors, and then
+# concatenates them together.
+paste0("The application ratio was ", 
+       application_ratio, 
+       " while the admissions ratio was ", 
+       admissions_ratio, 
+       " and the enrollment ratio was ",
+       enrollment_ratio)
+
+# One nice thing about this is that you put each item on its own line, aiding
+# in the readability of your code.
+```
+
+Whoa, what's happened here? What does it mean to have an NA for the admissions ratio? It's important to be aware that when you work with data that might be missing the missing attribute tends to be infectious when it comes to arithmetic operations. Most functions that deal with data - such as `sum` - will return an `NA` if the data has any `NA` values in it. In this case, one or more of our institutions had applicants from both men and women (as evidenced by the `application_ratio` variable), but did not record an admissions or enrollment number for one or both of men and women.
+
+Now working with missing data isn't just a technical challenge, as we are facing here, but a data policy and knowledge challenge. Did this happen because one of the groups was never admitted? Or did the institution just report `NA` for that value? We don't know, and it seems we need to do a bit of sleuthing to look into the issue.
+
+## Selecting with Boolean Masks
+
+Our first step here should be to consider where there might be missing values. We can use the `is.na` function to look through a column of data to see what is reported as `NA`.
+
+```{r}
+# Lets look first as to whether there are any male reports missing from the
+# admissions column
+is.na(admissions_df$ADMSSNM)
+```
+
+Ok, that was a bit of mouthful. R returned to us a giant vector of boolean values, either `TRUE` or `FALSE`, depending upon whether the column was `NA` for a given observation (in this case a university or college). We can see at a glance that there are clearly some missing values for males, but what if we want to quantify this, or if there wasn't a missing value in the first 1,000 entries?
+
+What might seem as a bit of a pain this, R has a really nice way of dealing with this data, and we call that **boolean masking**. A boolean mask is a vector of `TRUE` or `FALSE` values that we overall on top of our data through selecting. The result is that the selection returns only those observations for which there was a `TRUE` value, and does not return the `FALSE` ones.
+
+```{r}
+# It's pretty easy for us to just apply this boolean mask directly within the
+# selection operator
+admissions_df[is.na(admissions_df$ADMSSNM), ]
+```
+
+Ok, we see that the results of this is a new dataframe which has only 92 rows.
+
+This technique of boolean masking is very powerful, and you're going to use it all the time. By the end of this course, it's going to feel like second nature! Let's do a bit more.
+
+```{r}
+# Lets count the number of schools while reported no admissions from males or
+# females
+paste0("The number of schools with NA male admissions was ", 
+       nrow(admissions_df[is.na(admissions_df$ADMSSNM), ]), 
+       " and the number of schools with NA female admissions was ", 
+       nrow(admissions_df[is.na(admissions_df$ADMSSNW), ]))
+```
+
+Interesting! So some schools have `NA` reported data for males, and some for females. I wonder how many of these schools report and `NA` for both men and women? The power of the boolean mask is that we can combine these two queries through logical operators.
+
+We're going to practice this a lot, but it becomes pretty natural after awhile. We have a number of different operators (called **logical operators**) available to us, as shown in the table below:
+
+| Operator | Meaning                                                                                                                                                                                        |
+|--------------------|----------------------------------------------------|
+| `x & y`  | Returns `TRUE` only if `x` is `TRUE` **and** `y` is `TRUE`                                                                                                                                     |
+| `x | y`  | Returns `TRUE` only if `x` is `TRUE` **or** `y` is `TRUE` (or both are!)                                                                                                                       |
+| `!x`     | Called **not**, this operator flips all `TRUE` items in `x` to `FALSE` (and vice versa)                                                                                                        |
+| `x == y` | Returns `TRUE` if x is equal to y. Watch out! We use two equal signs to check if numbers are the same, not a single equal sign.                                                                |
+| `x < y`  | Returns `TRUE` if `x` is less than `y`. If you want to see if `x` is less than or equal to `y` you can use **`<=`**, and the reverse of these two operators, `>` and `>=`, also are available. |
+
+Armed with this knowledge, lets try and answer the question of whether the missing indicators are present in the same schools for male and female applicants.
+
+```{r}
+# We can modify our code to use two conditions, the first a boolean mask of
+# missing entries for male, and the second for female, and we can & these 
+# together to get a mask which is only true for schools that meet both criteria
+missing_schools<-admissions_df[is.na(admissions_df$ADMSSNM) & is.na(admissions_df$ADMSSNW), ]
+paste0("We have ", nrow(missing_schools), 
+       " schools which have reported NA for both men and women.")
+```
+
+Ok, so we know we have 24 schools that have reported missing data for both men and women, which means that we have 68 schools which have reported missing data for men alone, and 84 schools which have reported missing data for women alone.
+
+Now, this is a place where the data scientist needs to make some choices, since the question we're trying to answer with respect to acceptance and attendance ratios can't be answered with missing data. We're going to talk more about missing data techniques in a future class as this issue affects most analyses that you would actually want to do in practice. For the purpose of this lecture though, I'm going to exclude observations -- individual schools -- if they have missing data in any of the six variables we are interested in.
+
+```{r}
+# We're in for a fair bit of typing here. We know how to make a boolean mask for
+# missing data, so now we just have to negate that (so we get only data which is
+# not missing, remember we negate with the ! symbol) and combine all of the masks
+# together with an and condition. I like to do this over multiple lines for clarity.
+cleaned_df<-admissions_df[ !(is.na(admissions_df$APPLCNM)) &
+                             !(is.na(admissions_df$APPLCNW)) &
+                             !(is.na(admissions_df$ADMSSNM)) &
+                             !(is.na(admissions_df$ADMSSNW)) &
+                             !(is.na(admissions_df$ENRLM)) &
+                             !(is.na(admissions_df$ENRLW)), ]
+paste0("We have ", nrow(cleaned_df), " schools in our cleaned dataset.")
+```
+
+Now, that was a lot of typing, but that's how `R` works and it's important to know what is going on when you are cleaning your data. Thankfully, we have some people who have done a great job of extending `R` with other functions which make this task much easier. But before we go there, let's answer our question on whether the ratios of these three variables - applications, admissions, and enrollment - differ with respect to sex in our now cleaned and smaller dataset.
+
+```{r}
+# Let's create our statistics from the cleaned dataframe
+application_ratio<-sum(cleaned_df$APPLCNM) / sum(cleaned_df$APPLCNW)
+admissions_ratio<-sum(cleaned_df$ADMSSNM) / sum(cleaned_df$ADMSSNW)
+enrollment_ratio<-sum(cleaned_df$ENRLM) / sum(cleaned_df$ENRLW)
+```
+
+Ok, so we can see in our environment tab that we have the three ratio values. I didn't print them out though because I wanted to show you a neat function of RMarkdown Notebooks - we can embed variables within our non-code chunks just by starting with a backtick followed by the letter r and then the variable name. This allows you to write a narrative that includes elements of your computation right in it. You don't execute these text chunks, and instead render them through the knitting process, so to see the results you need to click on the visual tab at the top of RStudio.
+
+So in this case, we see that there was a male to female ratio of `r application_ratio` for applications, and an admissions ratio of `r admissions_ratio` and enrollment ratio of `r enrollment_ratio`.

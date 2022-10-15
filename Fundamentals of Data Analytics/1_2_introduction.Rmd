@@ -1,0 +1,245 @@
+# Getting Started with R
+
+In this course we're going to write our analyses in a mixture of plain text, computer code, and images. This form of analsyis is called a **computational narrative**, and it allows us to weave together discussion about the analysis, programming that actual does the analysis, and visuals to support our investigations and communication of the results. Now, I've tried to fully document my lectures in this format so that you can download these files to refer to later without having to re-watch videos. This means you can quickly skim through lectures with both the transcript of what I said as well as the code I've written -- sort of like a hybrid between a textbook and a video lecture.
+
+In this notebook I'm going to introduce you to some of the basic functions of R. But before I do that, let's talk about this whole notebook format.
+
+## R Markdown
+
+R is very strong in supporting this computational narrative approach to analysis, and does so through R Markdown files which usually end in .Rmd like this one. These files can be converted to more typical reading formats like PDFs, HTML files, or even Word documents through the "knitting" process within RStudio. There are a lot of different functions and features of R Markdown as well as options for knitting these documents into output, but we're just going to deal with the basics in this course.
+
+First, you can control formatting of the document using a very simple markup language and I'll have a cheat sheet linked in the course. Lines that start with an octothorpe -- usually called a pound sign, number sign, or the hash mark, #, are headers, and should show up in an outline to the right of the markdown document in RStudio. If you click the visualize button at the top of the window you'll see a rendered version of the document, and you'll see that there are numerous different levels of headings you can use just by adding more number signs in front of the heading. You can also control some of the basic output text formatting too, such as **bolding words** by surrounding them with two asterixes, *italicizing words* by surrounding them with single asterixes, or even ~~striking through~~ words by surrounding them with tildes.
+
+You'll see more examples of formatting in RMarkdown to come, including tables and lists, but let's get on to the writing code. RMarkdown files are made up of text and code "chunks". To create a code chunk we start a line with three back ticks followed by the curly braces and the lower case r, like this:
+
+```{r}
+
+```
+
+The triple back ticks tell RStudio that what is being written should be executable, and you'll see that RStudio automatically adds a play button to the right hand side and changes our styling. The lower case r tells RStudio that the language for this chunk is R, but other languages such as SQL and Python are supported.
+
+Inside of a code chunk we can write any valid R syntax, but not text formatting. You can execute chunks in any order, but the norm is to write chunks to be executed from top to bottom just like we would read a notebook, or write computer code.
+
+## R Programming
+
+### Language Basics
+
+The R programming has a long history and a lot of nuance, and instead of explaining it to you in a comprehensive manner, I want to explain it through some examples. I've linked a few books for deeper study in the course if you want to dig into details, and I highly encourage you to do so!
+
+Let's create a new code chunk and look at some language fundamentals.
+
+```{r}
+# Inside of a code chunk a pound sign starts a comment, so you'll see a lot of
+# my commentary like this. It's also customary (but not required) for code to be
+# limited in length on each line, so you'll see the formatting change slightly.
+
+# In R variables are created using the assignment operator, which is either a
+# <- for a left hand assignment, or -> for a right hand assignment. Let's create
+# two variables, a and b.
+
+a<-3
+4->b
+
+# Assigning a variable on the right hand side of an expression isn't very
+# common, so you'll mostly see the former syntax of <- used. You can also use
+# a single equal sign for variable assignment, but that's not as commonly done
+# in R.
+```
+
+Variables persist between code chunks. If you execute the code you'll see the `Environment` pane in the right hand of RStudio now has two variables in it, one for `a` and one for `b`.
+
+```{r}
+# We can use typical mathematical operators to compare values. The double
+# equals sign will check if the two variables are equal, while the greater than
+# sign will check if the one variable is larger than the other
+
+a>b
+```
+
+When we have executed a cell and output is printed to the console in RStudio. RStudio does this just as if we entered the lines in manually on the console as well, so we get to see our code comments written there too. The actual output, which is made up of the the result of expressions, is also placed in an output cell underneath the code chunk. This cell exists both in the source editor, as well as in the visual editor. If you want to have text displayed along with your outputs, you need to use the `print` function.
+
+```{r}
+print("Checking if a is greater than b...")
+a>b
+print("Checking if a is equal to b...")
+a==b
+```
+
+The base R language has many different functions and operators included, and while I'll introduce several of them in this course I'm also going to move fairly quickly in doing so and expect that you have either a little bit of programming knowledge already. If not that's ok -- but I would encourage you to check out some of the reference material I've linked in the course shell as a guide to the basics of the language.
+
+### Language Fundamentals
+
+R is known as a `vectorized` language, and the basic data structures in R are all vectors. For instance, when we create the variable `a` previously it looked like it was just a whole number, and integer. But actually, R stores this as a vector -- an ordered list of items all of the same format (in this case, `double` values). We can see the type of the items in a vector using the `typeof` function, and we can see how many items are in the vector using the `len` function.
+
+```{r}
+# Print the type of the items in a
+typeof(a)
+# Print the number of items in a
+length(a)
+```
+
+This vectorization feature of R is a bit confusing at first for those who have prior programming experience, but it's actually one of the reasons R is so clean to write and relatively high performance for data science. To create a vector of multiple different values we use the combine function, called `c` for short. This just combines all of the input it is given into a single vector.
+
+```{r}
+# Create a vector of three numbers
+a<-c(2,4,6,8)
+# Print the type of items in a
+print(typeof(a))
+# Print the number of items in a
+print(length(a))
+```
+
+Once you've run this code chunk you'll see that the type of the items in the vector `a` are still doubles, but the length is now of size 4. You might also have noticed that the value for `a` has changed in the environment pane in the upper right hand corner of RStudio. It now tells us this variable is a numeric variable (this is called the `mode` of the variable), and it shows the values in it. It also provides a set notation of `[1:4]`, which means the first item is at position `1` in the vector, and the last item is at position `4`. This syntax is exactly how we will query the vector to get data out.
+
+```{r}
+# We can access the first item in the vector using the [1] syntax. In R we don't
+# start indexing at 0, like most other programming languages!
+print(a[1])
+# We can also pull out multiple items in the vector at once by taking a slice.
+# The syntax for this is [start:end], so if we want the second through fourth
+# items we would just do...
+print(a[2:4])
+```
+
+This slicing notation is very commonly used for operations on vectors. A useful functionality of vectorized languages like R is that we can do operations between two vectors of the same length. For instance, let's add two three item vectors together.
+
+```{r}
+a<-c(1,2,3)
+b<-c(4,5,6)
+print(a+b)
+```
+
+We can also take a vector of size one, for instance a single number, and apply it to all items in a larger vector. Let's create a new vector which is each item in `a` multiplied by 5.
+
+```{r}
+d<-a*5
+print(d)
+```
+
+Two important things to note here! First, you'll see that I did not declare my variable as `c`, but instead called it `d`. Why? Well, `c` already is a function in R, and if I create a variable with the same name it would mean that I could no longer use `c()` to combine items! In addition, it's important to know that when we multiple a vector, in this case `a`, by another vector, in this case an unnamed vector with just the element `5` in it, what actually happens underneath is that the second vector is combined with itself until it is the same size as the first vector. This allows us to do operations between vectors of unequal sizes, as long as combination is something we're ok with.
+
+### Language Types
+
+In R we have a number of different types that can be used but we generally use vectors of one of the following:
+
+1.  integers, which are whole numbers
+2.  doubles, which are numbers which may have a fraction
+3.  characters, which are called strings in other languages
+4.  logicals, which are either true or false and are called booleans in other languages
+
+We also have a few non-vector objects. Here is where the R term for `object` tends to cause some confusion for people who have a programming background. I won't go into the specifics of object oriented programming and how R differs here, but in this course we will commonly also create:
+
+1.  lists, which look like vectors but have items of different types
+2.  functions, which are called closures in R and operate on data
+3.  dataframes, which are a form of two dimensional tabular data which we will explore in great detail in this course
+
+Lets take a look at lists first. To make a list we just use the combine function with items of different types.
+
+```{r}
+# Lets create a new list using the list() function
+my_list<-list(1,2,TRUE,'text')
+# Now we can print the type of the list
+print(typeof(my_list))
+
+# Lets compare that with a vectored version using c()
+my_vector<-c(1,2,TRUE,'text')
+# Lets print the type of the vector
+print(typeof(my_vector))
+```
+
+You can see that R indicates the list is of type list, but that the vector is of type character! If we look at the environment in the upper right corner of RStudio we get a bit more information. The variable `my_vector` is listed in the values section, and we can see that it is a vector of four items, and that each one is a set of characters. What's happened is that when we use combine, the `c()` function, R converts the types automatically for us, and in this case converting the types to character strings is the best it can do. Watch out for this! A vector **only** holds data of a single type, even though it holds multiple pieces of data.
+
+And speaking of data, there's a new entry in the environment pane, called Data, and it has our list in it.
+
+### Composite types
+
+In R, data can have attributes, or a list of key/value pairs which describe the data in some way. A commonly used attribute is the `name` for a given variable, and this becomes useful when we start talking about complex structures such as lists and dataframes. Let's create a list for a person, and set the name attribute for each of the items in that list to be something we might expect to see in a personnel management system.
+
+```{r}
+# Let's create a new employee record for me. Remember that each item in a list 
+# is actually a vector, and we can name the vectors just by prepending them
+# with a word
+employee<-list(userid='brooksch', name='Christopher Brooks', 43, instructor=TRUE, courses=c(101,102,200))
+```
+
+When you expand the data field for this list in the environment pane you can get a sense of how this works. We can see that we have four vectors with names -- userid, name, instructor, and courses -- all of length one except for my course list, which is of length three. We can see the type for each of these items, and we can see that there is one item in there which has no name, the number 43. So we're starting to deal with our first really structured data, and being able to read this environment pane will be critical to your understanding of your work!
+
+We see a dollar sign in front of each of these names, and that's an import cue -- you can use the `$` operator to select out an item from a list based on the name of that item.
+
+```{r}
+# Let's print out the employee userid
+print(employee$userid)
+```
+
+So, what do you do for my age, which has not been given a name? Well, we've already seen that we can use the slicing notation to get this out based on the position inside of a list
+
+```{r}
+# Print out the age of the employee
+print(employee[3])
+```
+
+Ok, well, let's dig in just a bit and clarify what we have here. The `name` attribute is not an attribute of the items in the list, but is an attribute of the list itself. We can print out what the attributes are of an object using `attribute`.
+
+```{r}
+# What attributes does employee have?
+print(attributes(employee))
+# What is the data type of the attributes result?
+print(typeof(attributes(employee)))
+```
+
+So we see that the names are stored in something called `$names`. Be careful! This is not an item in `employee`, otherwise we would expect to see it up in the environment pane with everything else. This is actually stored separately by R for each variable, and we see here it's a list itself. We also see that the age of the individual does have an entry, but it's the "empty string", which is just a string of zero length. So, how do we correct this? We can use the `names` function to get access to the values, and `setnames()` to change them.
+
+```{r}
+# First we get the names out of the employee object
+attribute_names<-names(employee)
+# Then we change the one we want
+attribute_names[3]<-"age"
+# Now we update the names, this returns a new employee so we need to assign it
+# back to our employee reference
+employee<-setNames(employee,attribute_names)
+```
+
+### Nothing
+
+One last fundamental and then we'll start playing with real data! We often have a need to represent **nothing**. This could be because we have missing data, which is pretty common in data science tasks. Or it could be because we haven't yet defined a field or object but we know there will be one, and this is pretty common in computer science tasks. Underneath computers represent everything in binary, one's and zeros. So how do we represent the lack of something in sequences of ones and zeros? This problem isn't unique to R, and plagues a lot of different programming paradigms and languages. In short, we have two different cases -- missing data versus unknown object references -- and R handles both of these differently.
+
+```{r}
+# We represent the lack of a reference to something as a null value
+x<-NULL
+# When we print out the type of this object, we'll see that it is called NULL
+print(typeof(x))
+# How long is this vector?
+print(length(x))
+# And we can' do logical comparison on null values with ==
+print(x==NULL)
+```
+
+You'll see that the `x==NULL` generates a warning in R, that annoying little red squiggle underline, and that the return value is something of `logical(0)`. This is a logical vector, but of length zero! There are no values in it. It's not `TRUE` nor is it `FALSE`. When we use `NULL` to represent the lack of something we need to use the `is.null()` function to see if it actually is null.
+
+```{r}
+print(is.null(x))
+```
+
+The missing value indicator, `NA`, is actually something similar. It also is represented by a logical vector, but in this case it has a single item in it which is the value `NA`!
+
+```{r}
+# We represent missing data with an NA
+x<-NA
+# When we print out the type of this object, we'll see that it is also a logical
+# vector, not an NA
+print(typeof(x))
+# But if we look at the length of that vector it indeed has something in it!
+print(length(x))
+# And what is that? Turns out it is.... NA
+print(x)
+```
+
+When we want to do comparisons for missing values -- which we're going to do a lot of in this course! -- we'll use a function such as `is.na()`.
+
+```{r}
+is.na(x)
+```
+
+## Wrap up
+
+Ok, this was a pretty long lecture, but I wanted to put down some fundamentals. We're going to reinforce all of this discussion through examples and working with real data, and we're going to start right away in the next lecture! At the same time, R is an old language with lots of nuance, so if you would like to get under the hood a bit and understand how it works, or even if you just want a reference guide while you join us on this journey we've got some resources listed in the course to help you.
