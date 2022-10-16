@@ -1,0 +1,266 @@
+# Lab @ DC
+
+The Lab @ DC is a remarkable initiative by the the Office of the City Administrator of Washington, DC. Now, Dr. Lantz already introduced you to the work of the lab and the specific case we'll be covering today, but I want to just touch on what I find remarkable about this group. Where we are seeing more and more governments of all sizes open up their data -- often required by legislation -- The Lab has gone much further and opened up the whole scientific process they use. This is next level accountability and transparency and, frankly, I hope this catches on. It gives everyone an opportunity to learn what works and what doesn't and, importantly, it allows anyone to improve their skills, question assumptions, and contribute with very low friction. That I could take the work they have done, do a partial replication analysis for this lecture, and not have to actually talk to anyone at The Lab is incredible and rare.
+
+# DC Garbage Cans
+
+Ok, enough of me heaping praise, let's consider the case they were interested in. Trash stinks, and municipalities have different strategies they can try and employ to reduce litter in high density areas like city centers. Public garbage cans are common, and the question asked in this work is, can a behavioral nudge in the form of positive messaging on the garbage can itself reduce the amount of litter on the streets? If so this would be an extremely inexpensive intervention which could be rolled out to all public garbage cans with minimal cost. So to test this, in 2017 the city chose a number of streets in busy areas and randomly assigned some garbage cans to have signs and some not to. The randomization methods, which Dr. Lantz covered, are really important because we would expect that some cans might have a change in garbage use just based on traffic patterns in the city.
+
+## Analysis
+Now, I'm going to focus on the analysis of the data which was collected. The **outcome variable** we are interested in is the __average of the maximum fullness per can, per day__, and sensors were installed on the garbage cans to measure the fullness by volume. Let's take a look at that data.
+
+```{r}
+library(tidyverse)
+df_fills <- read_csv('littercan_fills.csv')
+df_fills
+```
+Ok, so here we see a bunch of data about garbage cans, sensors, the fill level, locations, and dates. There is no information on which condition -- with or without a nudging sign -- a garbage can has been assigned to. We need to look in another datafile for that.
+
+```{r}
+df_cans <- read_csv('littercans_randomized.csv')
+df_cans
+```
+In this second datafile we see can-level information, the address, the street, the identifier of the block, and the side of the street. In North America odd numbers are on one side of the street, while even numbers are on the other, so you see lots of mention of odd and even here in the data. Importantly, we see the conditional assignment variable here, `Z`, which is a `0` if the can had no sign on it and a `1` if the can did have a sign on it.
+
+Now, this arrangement of data is pretty common, we have one file which has all of the experimental observations that were taken, that's our `df_fills`, and we have another which has details about the assignment condition and information about the population of the samples (in this case garbage cans!) in our experiment, that's our `df_cans`. We're going to have to join these two dataframes together, and that means we get to learn a little bit more about R. We have a unique garbage can identifier in the datasets, `MeId`, and this will be key for our success.
+
+But before we do that, it's important to note that this base data we have been provided with doesn't actually have the outcome measure that the team was interested in -- the __average of the maximum fullness per can, per day__. Let's go back to the `df_fills` and take a look at a few columns.
+
+```{r}
+# Let's take a look at some of our variables available
+df_fills |>
+  select(RecordedDateTime, MeId, CalculatedPercentFull)
+```
+
+It looks like we have a can identifier, a timestamp of when values were measured, and a percentage of fullness. But if you look closely you'll see that the fullness is measured more than once per day.
+
+```{r}
+# Let's do a bit of exploratory data analysis on a single garbage can
+df_fills |> 
+  # I just took the first one in the dataset
+  filter(MeId=='A10000502617E8') |>
+  # And just the first day
+  filter(str_detect(RecordedDateTime,"2017-11-27")) |>
+  # And a quick little line plot
+  ggplot(aes(x=RecordedDateTime, y=CalculatedPercentFull)) + 
+  geom_line()
+```
+Ok, so we have a variable fill level being measured out over the day. Let's now calculate the __average of the maximum fullness per can, per day__, which means we want to find the maximum fullness of a can on a given day, and then calculate the average of that across all of the days for each can. You already have all the `dplyr` skills to pull this off, so now would be a great time to try and do that yourself.
+
+```{r}
+library(lubridate)
+
+daily_max <- df_fills |>
+  # I'm going to convert this to an actual date object using lubridate. This
+  # will get rid of the time component. You can treat this as a string instead
+  # if you wanted to!
+  mutate(date_reading = date(RecordedDateTime)) |>
+  # Now we group by our can ids and dates
+  group_by(MeId, date_reading) |>
+  # And create a new variable, which is just the maximum of the 
+  # CalculatedPrecentFull, and I'll divide by 100 to get a number between
+  # 0 and 1
+  summarize(max_fill = max(CalculatedPercentFull)/100)
+daily_max
+```
+
+## Into Compactor 3263827
+
+Sometimes you have to look at your data and wonder if it's trash. This is an important part of the data manipulation and cleaning process. For instance here we have a `max_fill` value greater than one! Let's investigate a bit.
+
+```{r}
+# I'm going to update the line plot with this new can, and toss in some breaks
+df_fills |>
+  filter(MeId=='A10000438B4753') |>
+  ggplot(aes(x=RecordedDateTime, y=CalculatedPercentFull)) + 
+  geom_line() +
+  scale_y_continuous(n.breaks=10)
+```
+In this case it appears that our data actually does go above 100%. Is this reasonable? Is it right? It requires going and talking to the experiment design team to understand how the sensors work. Maybe there's a max fill line which is 100%, and this sensor is reading above that. Or perhaps this is a data collection error, and the data needs to be further cleaned. Regardless, it's important for you as an analyst to work with the larger team and explore the data to understand it. In this specific case, the team in the Lab @ DC chose to cap the values to 100%, so we'll do that too.
+
+```{r}
+# Quick little mutate!
+daily_max <- daily_max |> 
+  mutate(max_fill=(if_else(max_fill>1.0,1.0,max_fill)))
+```
+
+## Joining Data
+
+Now we're going to move onto the task of joining our two datasets together. When we speak about joining of data we're talking about taking two datasets and matching some rows (observations) based on some values in those rows. While the `dplyr` norm is to call the datasets `x` and `y`, it's more traditional to think of them as dataframe on the left and a dataframe on the right and we choose a joining strategy based on a shared variable in each.
+
+The joining functionality in `dplyr` is similar to that of a relational database, so if you know that this will all be familiar. The key consideration in joining dataframes is what to do when some values in your join column -- in this example, a garbage can identifier -- either (a) don't exist in one dataset, or (b) exist multiple times in a dataset. Because of this, there are four different kinds of joining functions available to us:
+
+### `inner_join()`
+
+The first is the `inner_join()`, where all of the rows in both the left and the right dataframes are kept and joined together. So if data is missing it's just filled with `NA` values for one side. If a key exists two or more times on one side, then it' is's joined two or more times. Let's take a look at how this would work.
+
+```{r}
+# Let's imagine we have a little dataframe about the people teaching this course
+# in the MOOC specialization
+left <- data.frame (firstname  = c("Chris", "Paula", "Alton"),
+                    secondname = c("Brooks", "Lantz", "Worthington"),
+                    school = c("Information", "Public Policy", "Public Policy"))
+
+# Now let's imagine we have another dataframe which are the core development
+# team which helped put it together. These people are amazing contributors to
+# this and other courses in the specialization and so I'm happy to recognize
+# their efforts in this little example!
+right <- data.frame (firstname  = c("Chris", "Paula", "Abby", "Emily", "Matt", "Ahmed", "Daniela"),
+                    secondname = c("Brooks", "Lantz", "F.", "R.", "F.", "L.", "D."),
+                    role = c("Instructor", "Instructor", "Coordinator", "Coordinator", "Media", "Learning", "Learning"))
+
+left
+right
+```
+
+Ok, the `inner_join` is going to retain all keys which exist in both the left and the right hand dataframes. In this case, `firstname` uniquely identifies people and is the one I'd like to use to match on. The only `firstname` values which are in both dataframes are Chris and Paula, so when we match on this we get a single joined dataframe with two rows.
+
+```{r}
+# We use the by argument to indicate which column we want to use to join on
+inner_join(left, right, by="firstname")
+```
+
+We see a couple of things here. First, the `secondname` variable is repeated, because it actually exists with the same name in both dataframes, the left and right. R doesn't want to throw data away, so it just adds a suffix to each column to indicate where it came from if disambiguation is needed. One way we could suppress this is to actually join on the combination of names, since this is natural with first and last names.
+
+```{r}
+# Just like groupby we can include a vector of many values to join on, this
+# is an AND operation, so you could think of dplyr actually merging all of these
+# columns down into one giant string on each side and then joining them.
+inner_join(left, right, by=c("firstname","secondname"))
+```
+
+### `left_join()`
+
+Now, a `left_join()` keeps all rows in the left hand side argument, and only those rows which match in the right hand side. For all values which only existed in the left hand side, the right hand side will be filled with `NA` values.
+
+```{r}
+# The effect here is that we'll keep Alton in the final data
+left_join(left, right, by=c("firstname","secondname"))
+```
+You can see that in this case Alton's role was set to `NA`, because it's data from the right side dataframe which doesn't exist.
+
+### `right_join()`
+
+The right join does the opposite, keeping data in the right hand side argument and data from the left only if it matches.
+
+```{r}
+# Alton will be gone again, but everyone else comes in
+right_join(left, right, by=c("firstname","secondname"))
+```
+In practice it's very rare to see anyone actually do a `right_join()` because you can just flip the arguments to get the same effect with the `left_join()`, and we tend to teach left first.
+
+```{r}
+# Functionally the same
+left_join(right, left, by=c("firstname","secondname"))
+```
+The column ordering is different, but that's about it. However, in the world of the tidyverse, where piping is common, there may be more usage of the `right_join`, so you should be aware of it.
+
+### `full_join()`
+
+The `full_join()` keeps all the columns from the left and the right, and fills in `NA` values on both sides as appropriate.
+
+```{r}
+# Everyone!
+full_join(right, left, by=c("firstname","secondname"))
+```
+We can see that everyone is included here, with Alton getting an `NA` value for the role, while Emily, Matt, and others get an `NA` for the school variables.
+
+## Back to Trash
+
+Alright, now that we have a new tool in our toolbox, lets join our datasets. We have `df_fills` and `daily_max` already, but now we want to bring in the "condition assignment", which is whether the garbage can has a sign on it or not. So let's create a new dataframe based on `daily_max` which has this information.
+
+```{r}
+# Merge the daily_max with the can info. I'll just pipe the daily_max dataframe
+# in as a left join with df_cans, which will exclude cans which do not have
+# an average max fullness value.
+df_can_day <- daily_max |>
+  left_join(df_cans, by = "MeId") |>  
+  # I also want to get rid of cans which don't have a treatment assignment
+  filter(!is.na(Z)) |>
+  # Remember our daily_max data is grouped, but I don't need this grouping
+  # anymore, so I'll ungroup the data
+  ungroup() |>
+  # And create a more clear indication of whether something was in the
+  # treatement or control group
+  mutate(Z = ifelse(Z == 1, 'Treatment', 'Control'))
+df_can_day
+```
+
+Nice, a number of our skills there at play. We can see that we have a by-date and by-can dataframe with the `max_fill` holding our outcome variable and `Z` holding our condition assignment. By the way, in addition to teaching me at Michigan that they call the color yellow "Maize", it also seems that the pronounce the letter Z as a Zee, so my apologies if it's not clear. You'll also notice that in `ggplot` you can use two different spellings for many of the arguments, such as the correct spelling of `colour` with a u in it and the American spelling of `color`. It's an interesting design decision that I haven't seen in many other libraries, and Hadley Wickham's kiwi (New Zealander) roots show nicely.
+
+Regardless of pronunciation though, we should try and visualize this data before we do an inferential test of it.
+
+```{r}
+# My interest here is really to do a sanity check and get an intuition for the
+# data along our hypothesis question. Are the two groups different? Well, if
+# I plot the average of the max_fill for the two Z conditions I should get nice
+# curves which I can visually compare
+df_can_day |> 
+  # Since this is date data by condition I'll group on these values
+  group_by(Z, date_reading) |> 
+  # Then I'm going to calculate the average for each of the two groups
+  summarize(avg = mean(max_fill)) |> 
+  # Now ungroup our data
+  ungroup() |>
+  # And sent it in to ggplot where I'll plot both the daily average points
+  # and the lines. In this case I'll use the linetype aesthetic to tell ggplot
+  # that I want it to change the line type for treatment and condition so that
+  # they are different. This is just like color, but another approach!
+  ggplot(aes(x = date_reading, y = avg, linetype = Z)) + 
+  geom_line() + 
+  geom_point() + 
+  labs(x = 'Date',
+       y = 'Average Daily Max Fill Pct.',
+       linetype = 'Assignment')
+```
+What do you think? Are these the same? Different? Take a moment to go back to the data tibble. How else might we want to visualize this data to get some insight into what it means?
+
+```{r}
+# As a second example, I thought it would be interesting to look at the data by
+# the area of the city. Since we only have 7 areas, this is a pretty reasonable
+# thing to put into one image. Should we use cowplot or facets for this task?
+
+# Since we are looking to have all the same kind of plots (line and points)
+# and we have a variable which indicates our different groups of interest (the
+# area) a facet approach is what we want. 
+df_can_day |> 
+  # One more item to group by, the area
+  group_by(area, Z, date_reading) |>
+  # The rest of the dplyr work is the same
+  summarize(avg = mean(max_fill)) |>
+  ungroup() |>
+  # With the ggplot all we want to make sure we have added is either a
+  # facet_wrap or facet_grid where the first argument is the area variable
+  ggplot(aes(x = date_reading, y = avg, linetype = Z)) + 
+  geom_line() + 
+  geom_point() + 
+  facet_wrap(facets=vars(area), ncol = 2) + 
+  labs(x = 'Date',
+       y = 'Average Daily Max Fill Pct.',
+       linetype = 'Assignment')
+```
+
+Ok, these all look pretty similar to me by eye. So I think now we should do the t-test based on the daily max fill across all of the cans.
+
+```{r}
+# A t-test in R is pretty straight forward, you call t.test() and pass in your
+# two samples, in this case the Control and Treatment garbage can max_fill
+# values. Should it be a paired t-test, or an unpaired t-test? You only do a
+# paired t-test if your sample subjects -- individual garbage cans -- are the
+# same in the two conditions. That's not true here, so we'll do an unpaired
+# t-test which is the default.
+
+# We're not in the tidyverse anymore, this is straight base R from the first
+# week of this specialization! So be ready for the different syntax
+t.test(df_can_day[df_can_day$Z=="Control",]$max_fill,
+       df_can_day[df_can_day$Z=="Treatment",]$max_fill)
+```
+
+So, what does this tell us? Well, we see that the mean -- the average-- of the control group was 61.14% full, while the mean of the treatment group was actually higher at 61.43% full. However, the p-value of 0.62 is quite high. Remember, this number ranges from 0 to 1 and gives us a sense of confidence in whether the two groups are actually different or whether it's a chance occurrence. A number closer to one indicates that this is likely to be a chance occurrence, and a number closer to zero indicates that it is likely to be a systematic occurrence. Generally a parameter, called `alpha`, is set ahead of time to determine the level of confidence you are willing to accept. I have to confess that this is often poorly done and motivated. One of the discussions of this -- by our friend John Tukey actually -- set an example threshold for alpha at 0.05, which means accepting a result which has only a 5% chance of being a random agreement. However, this has stuck as a sort of hard and fast rule in the social sciences, and can mean that some promising findings are rejected outright instead of being discussed and followed up on.
+
+As your observations grow in number, your p-value will shrink. So an experiment which has a dozen garbage cans and a p-value of 0.05 actually has a much higher signal than an experiment which has a thousand garbage cans and a p-value of 0.05. The meaning of the p-value hasn't changed, but how we interpret it and what we do with it might. You also have to think of an effect size -- how big a difference actually was if it was observed. And you must think of the cost of a given intervention when you are a decision maker. This intervention is cheap and could easily be rolled out to all garbage cans. But our effect is actually in the wrong direction, so even if we were confident there was a difference we wouldn't want to put the signs up!
+
+## Wrapup
+In much of my work I consider a range of p-values and use them to inform my next action. For instance, if I have a relatively small study and I get a p-value of 0.15 I'll usually think about what noise might be in the study (e.g. other factors impacting the outcome) and then plan a larger replication study. This is a critical part of my scientific inquiry, and I think things are (slowly) changing away from strict alpha values with the introduction of more modern methods. One that is rapidly being adopted in medicine and health is the use of confidence intervals, which R actually reports here. Another, which is being used more heavily in computational sciences, are Bayesian inferential methods.
+
+And speaking of Bayesian methods, The Lab @ DC didn't actually do a t-test like we did, although they come up with a similar conclusion that there is likely to be no different between groups. They used a Bayesian predictive model to compare the two groups, and it's a bit out of scope for this class although a reasonable approach to be using. Their code and data is all freely available on github, a centralized place many people share data, and since it's all written in R you can dig in and see what they've done if you would like to.
