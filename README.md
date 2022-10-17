@@ -1,5 +1,5 @@
 # UoMDA
-##Data Analytics in the Public Sector with R Specialization
+## Data Analytics in the Public Sector with R Specialization
 ### About this Specialization
 
 
