@@ -1,0 +1,195 @@
+﻿Country,Continent,BMI,Population,LifeExp_female,Life_expectancy,CHE GDP(%),GDP,Status
+Afghanistan,Asia,22.9,34413603,64.7,63.2,10.1,19907111418.99,Developing
+Albania,Europe,26.7,2880703,78.2,76.1,,11386927679.09,Developing
+Algeria,Africa,25.5,39728025,77.2,76.2,7,165978425168.39,Developing
+Andorra,Europe,27.0,78011,,,10.3,2811489408.89,Developing
+Angola,Africa,22.9,27884381,64.5,62.2,2.6,116193649124.15,Developing
+Antigua and Barbuda,North America,26.6,93566,77.4,75,4.7,1336692592.59,Developing
+Argentina,South America,27.6,43131966,80.1,76.8,8.8,594749285413.21,Developing
+Armenia,Asia,26.5,2925553,77.9,74.6,10.1,10553337672.99,Developing
+Australia,Oceania,27.4,23815995,84.5,82.6,9.3,1351693984524.50,Developed
+Austria,Europe,26.0,8642699,83.8,81.4,10.4,381817565893.57,Developed
+Azerbaijan,Asia,26.9,9649341,75.5,72.9,6.7,53074468085.11,Developing
+Bahamas,North America,28.0,374206,78.5,75.6,5.7,11752300000.00,Developing
+Bahrain,Asia,25.0,1371851,79.4,78.8,5,31125877659.57,Developing
+Bangladesh,Asia,21.6,156256276,74,72.2,2.5,195078678697.23,Developing
+Barbados,North America,27.9,285324,77.9,75.5,7,4725500000.00,Developing
+Belarus,Europe,27.2,9489616,78.8,73.8,6.1,56454734396.58,Developing
+Belgium,Europe,26.6,11274196,83.2,80.9,10.3,462149679343.82,Developed
+Belize,North America,28.8,360933,73.2,70.3,5.9,1723785356.57,Developing
+Benin,Africa,23.3,10575952,62,60.7,4,8294490789.00,Developing
+Bhutan,Asia,23.8,727876,70.3,70.2,3.7,2003598213.03,Developing
+Bolivia (Plurinational State of),South America,26.2,10869730,73.7,71.2,6.6,33000198263.39,Developing
+Bosnia and Herzegovina,Europe,26.1,3429361,79.6,77.1,9.3,16211540686.14,Developing
+Botswana,Africa,23.8,2120716,67.9,65.3,5.7,14420604205.75,Developing
+Brazil,South America,26.5,204471769,78.6,74.9,8.9,1802214373741.32,Developing
+Brunei Darussalam,Asia,27.2,414907,77.3,76.2,2.4,12930394937.81,Developing
+Bulgaria,Europe,27.0,7177991,78.3,74.7,8.2,50201314894.58,Developed
+Burkina Faso,Africa,22.1,18110624,60.4,59.8,5.8,10419303761.35,Developing
+Burundi,Africa,21.6,10160030,61.4,59.7,6.6,3104394858.12,Developing
+Cabo Verde,Africa,24.3,524743,74.7,73,4.8,1596800287.16,Developing
+Cambodia,Asia,22.0,15521436,70.8,69,6.2,18049954289.42,Developing
+Cameroon,Africa,24.0,23298368,58.8,57.2,4.7,30916218544.44,Developing
+Canada,North America,27.3,35702908,84.5,82.6,10.5,1552899925233.71,Developed
+Central African Republic,Africa,22.5,4493170,53.5,52.6,6.3,1695143879.57,Developing
+Chad,Africa,21.5,14110975,54.9,53.7,4.5,10945989471.63,Developing
+Chile,South America,28.0,17969353,82.3,79.4,8.3,243919085308.79,Developing
+China,Asia,23.9,1371220000,77.7,76.2,4.9,11015542352468.90,Developing
+Colombia,South America,26.1,47520667,78.6,74.9,7.3,293481748240.78,Developing
+Comoros,Africa,24.3,777424,65.2,63.6,7.8,965640593.04,Developing
+Congo,Africa,22.9,4856095,64.8,63.6,3.4,8553154580.40,Developing
+Cook Islands,Oceania,32.8,,,,2.9,,Developing
+Costa Rica,North America,27.2,4847804,82.1,79.4,7.8,54775994478.51,Developing
+Cote d'Ivoire,Africa,23.6,23226143,55,53.9,4.4,33131114321.68,Developing
+Croatia,Europe,27.9,4203604,80.6,77.5,6.8,49530656285.09,Developed
+Cuba,North America,25.8,11324781,81,78.8,12.8,87133000000.00,Developing
+Cyprus,Europe,27.1,1160985,82.9,80.5,6.8,19779150116.50,Developed
+Czechia,Europe,27.9,10546059,81.5,78.6,7.2,186829940545.76,Developed
+Democratic People's Republic of Korea,Asia,24.1,25183833,75.2,71.8,,,Developing
+Democratic Republic of the Congo,Africa,21.7,76244544,61.6,60.1,3.9,37917704900.08,Developing
+Denmark,Europe,25.7,5683483,82.8,80.9,10.2,302673068765.97,Developed
+Djibouti,Africa,23.8,913993,65.3,63.6,4.4,2445484583.05,Developing
+Dominica,North America,26.9,71183,,,5.4,540737037.04,Developing
+Dominican Republic,North America,26.3,10281680,76.4,73.3,6,71164826720.51,Developing
+Ecuador,South America,27.0,16212020,78.8,76.3,8.6,99290381000.00,Developing
+Egypt,Africa,29.3,92442547,72.6,70.3,5.3,332698041030.81,Developing
+El Salvador,North America,27.3,6325124,77.9,73.4,7.6,23438000000.00,Developing
+Equatorial Guinea,Africa,23.9,1168568,61.7,59.4,2.9,13180195435.11,Developing
+Eritrea,Africa,20.5,,66.7,64.6,2.9,,Developing
+Estonia,Europe,26.9,1315407,81.8,77.7,6.4,23048864242.61,Developed
+Eswatini,Africa,26.0,1104044,59.6,57.3,7.1,4073390988.35,Developing
+Ethiopia,Africa,20.4,100835458,66.8,65,3.9,64589334978.80,Developing
+Fiji,Oceania,27.6,868627,73,69.8,3.6,4682546863.08,Developing
+Finland,Europe,26.6,5479531,84.2,81.4,9.7,234585368746.27,Developing
+France,Europe,25.6,66548272,85.4,82.7,11.5,2438207896251.84,Developed
+Gabon,Africa,24.8,1947686,67.5,65.9,2.7,14377324797.64,Developing
+Gambia,Africa,23.5,2085860,63,61.6,3.1,1378176868.32,Developing
+Georgia,Asia,27.9,3725276,77.1,72.8,7.9,14953950557.44,Developing
+Germany,Europe,27.3,81686611,83,80.6,11.1,3360549973888.58,Developed
+Ghana,Africa,23.7,27849205,64,63.1,4.6,49181854798.26,Developing
+Greece,Europe,27.7,10820883,83.4,80.9,8.1,196591353761.23,Developed
+Grenada,North America,26.7,109599,75.8,73.3,4.7,997007925.93,Developing
+Guatemala,North America,26.2,16252429,75.8,72.9,6,63767597193.92,Developing
+Guinea,Africa,22.7,11432088,59,58.6,5.8,8794202443.67,Developing
+Guinea-Bissau,Africa,23.1,1737202,60.6,59.3,8.6,1047808175.00,Developing
+Guyana,South America,26.1,767432,68.9,66.1,4.5,3197220338.98,Developing
+Haiti,North America,25.0,10695542,65.6,63.3,8.6,8724656126.50,Developing
+Honduras,North America,26.4,9112916,77.3,75,7.7,20979767785.21,Developing
+Hungary,Europe,27.8,9843028,78.7,75.4,7,124529741437.18,Developed
+Iceland,Europe,26.4,330815,84,82.4,8.2,17344165907.21,Developed
+India,Asia,21.7,1310152403,70,68.5,3.6,2103587813812.75,Developing
+Indonesia,Asia,23.1,258383256,71.2,69.1,3,860854235065.08,Developing
+Iran (Islamic Republic of),Asia,26.0,78492215,76.7,75.5,7.8,385874474398.59,Developing
+Iraq,Asia,28.1,35572261,71.8,69.3,3.1,177498577312.92,Developing
+Ireland,Europe,27.7,4701957,83.3,81.4,7.3,291499812103.65,Developed
+Israel,Asia,27.4,8380100,84,82,7.1,299813121212.64,Developing
+Italy,Europe,26.3,60730582,84.6,82.4,9,1835899237320.04,Developed
+Jamaica,North America,27.6,2891021,78.3,75.8,5.7,14187696311.36,Developing
+Japan,Asia,22.9,127141000,87,84,10.9,4389475622588.97,Developed
+Jordan,Asia,28.4,9266575,75.8,74.1,7.6,38043450704.23,Developing
+Kazakhstan,Asia,26.3,17542806,74.9,70.6,3,184388432148.72,Developing
+Kenya,Africa,23.1,47878336,68.4,66,5.2,64007750178.50,Developing
+Kiribati,Oceania,30.0,110930,68.4,65.9,8,171117872.44,Developing
+Kuwait,Asia,29.4,3835591,75.9,74.6,4,114567298105.68,Developing
+Kyrgyzstan,Asia,26.0,5956900,74.8,71.1,7.1,6678178340.45,Developing
+Lao People's Democratic Republic,Asia,22.6,6741164,67,65.5,2.5,14390442307.40,Developing
+Latvia,Europe,27.3,1977527,79.3,74.8,5.7,27090019662.80,Developed
+Lebanon,Asia,27.4,6532678,77.6,76.1,7.7,49973893200.66,Developing
+Lesotho,Africa,24.4,2059021,53.8,52.1,8.4,2289799039.80,Developing
+Liberia,Africa,23.9,4472230,63.2,62.1,10.3,3177000000.00,Developing
+Libya,Africa,27.8,6418315,75.1,72,,27842131479.87,Developing
+Lithuania,Europe,27.0,2904910,79.6,74.4,6.5,41392396557.63,Developed
+Luxembourg,Europe,26.7,569604,84.7,82.4,5.5,57744457954.73,Developed
+Madagascar,Africa,21.2,24234088,67.2,65.7,5.7,11323020828.58,Developing
+Malawi,Africa,22.8,16745303,66,63.4,9.3,6373212640.85,Developing
+Malaysia,Asia,25.6,30270962,77.5,75.1,3.9,301354756113.17,Developing
+Maldives,Asia,24.9,454915,79.6,78.1,8.7,4109424799.72,Developing
+Mali,Africa,22.8,17438778,57.8,57.4,4.1,13099497220.47,Developing
+Malta,Europe,27.7,445053,83.2,81.5,9.2,10715545898.63,Developed
+Marshall Islands,Oceania,29.5,57439,,,17.6,184599600.00,Developing
+Mauritania,Africa,24.6,4046301,65,63.7,4.7,4828858024.69,Developing
+Mauritius,Africa,25.3,1262605,78,74.6,5.7,11692287066.38,Developing
+Mexico,North America,27.8,121858258,78.9,76.2,5.8,1170564619927.69,Developing
+Micronesia (Federated States of),Oceania,29.1,108895,70.6,69.3,12.5,316489947.49,Developing
+Monaco,Europe,,37718,,,2,6258844405.01,Developing
+Mongolia,Asia,25.9,2998439,74,69.6,4.2,11749620619.60,Developing
+Montenegro,Europe,26.8,622159,79,76.6,,4052913385.83,Developing
+Morocco,Africa,25.8,34663603,76.8,75.8,5.1,101179808076.36,Developing
+Mozambique,Africa,22.6,27042002,60.9,59,5.3,15950969018.95,Developing
+Myanmar,Asia,22.6,52680726,68.7,66.5,5.2,59687410896.57,Developing
+Namibia,Africa,23.7,2314904,65.7,63.4,9.9,11650656642.27,Developing
+Nauru,Oceania,32.6,12475,,,13.3,99966636.16,Developing
+Nepal,Asia,22.3,27015031,70.5,69,6.2,21410840908.52,Developing
+Netherlands,Europe,26.1,16939923,83.1,81.5,10.3,765264949781.00,Developed
+New Zealand,Oceania,28.1,4595700,83.7,82,9.3,177208110322.70,Developed
+Nicaragua,North America,26.8,6223240,78.2,75.2,8,12756706583.31,Developing
+Niger,Africa,21.7,20001663,60.2,59.2,7.1,7217667780.60,Developing
+Nigeria,Africa,23.0,181137448,55.3,54.8,3.6,494583180777.10,Developing
+Niue,Oceania,32.3,,,,8.2,,Developing
+Norway,Europe,27.0,5188607,84.1,82.3,10.1,385801550067.17,Developed
+Oman,Asia,26.0,4267348,79.3,76.8,4.3,68921456436.93,Developing
+Pakistan,Asia,23.7,199426964,67,66.1,2.7,270556131701.17,Developing
+Palau,Oceania,29.5,17665,,,10.9,280376100.00,Developing
+Panama,North America,26.8,3968487,81.1,77.9,6.8,54091700000.00,Developing
+Papua New Guinea,Oceania,25.7,8107775,68.1,65.7,1.9,21723531182.14,Developing
+Paraguay,South America,26.4,6688746,76,74.1,6.7,36164068797.25,Developing
+Peru,South America,26.4,30470734,78.1,75.6,5,189805300841.60,Developing
+Philippines,Asia,23.0,102113212,72.5,69.2,4.3,292774099013.69,Developing
+Poland,Europe,27.1,37986412,81.3,77.4,6.4,477576866958.48,Developed
+Portugal,Europe,26.3,10358076,84.3,81.3,9,199313894327.49,Developed
+Qatar,Asia,29.1,2565710,79.7,78,3.1,161739835164.84,Developing
+Republic of Korea,Asia,23.9,51014947,85.3,82.3,7,1382764027113.82,Developing
+Republic of Moldova,Europe,27.3,2834530,74.6,70.8,8.6,7745231660.33,Developing
+Republic of North Macedonia,Europe,26.9,2079328,77.8,75.7,6.3,10064515432.03,Developing
+Romania,Europe,27.3,19815616,78.7,74.9,4.9,177893451831.14,Developed
+Russian Federation,Europe/Asia,26.6,144096870,76.9,71.5,5.3,1363594369577.82,Developing
+Rwanda,Africa,22.2,11369071,68.4,67.6,6.5,8277614580.59,Developing
+Saint Kitts and Nevis,North America,29.3,51203,,,4.9,923155555.56,Developing
+Saint Lucia,North America,29.8,179126,78.2,75.4,4.8,1659110888.89,Developing
+Saint Vincent and the Grenadines,North America,27.1,109148,75.1,72.3,4.3,755400000.00,Developing
+Samoa,Oceania,31.8,193513,78.2,74.8,5.7,788307314.85,Developing
+San Marino,Europe,,33272,,,7.4,1523012088.28,Developing
+Sao Tome and Principe,Africa,24.4,199432,70.5,68.5,5.4,318265835.26,Developing
+Saudi Arabia,Asia,28.4,31717667,76.3,74.6,6,654269902880.00,Developing
+Senegal,Africa,22.5,14578459,68.3,66.4,4.4,17767704596.93,Developing
+Serbia,Europe,26.5,7095383,78.5,75.9,8.8,39628550868.75,Developing
+Seychelles,Africa,26.9,93419,77.8,73.1,4.6,1377495054.04,Developing
+Sierra Leone,Africa,22.7,7171914,52,51.4,20.4,4218723875.14,Developing
+Singapore,Asia,23.8,5535002,84.8,82.7,4.2,308004146057.61,Developing
+Slovakia,Europe,26.9,5423801,80.6,77.1,6.8,88457167724.28,Developed
+Slovenia,Europe,26.9,2063531,83.5,80.6,8.5,43090173061.97,Developed
+Solomon Islands,Oceania,26.1,603118,72.4,70.9,5.2,1154650068.86,Developing
+Somalia,Africa,22.8,13797201,57.1,55.6,,4048860871.41,Developing
+South Africa,Africa,27.0,55386367,66.7,63.3,8.2,317620522794.83,Developing
+South Sudan,Africa,,10715658,59.1,58.2,,11997800751.06,Developing
+Spain,Europe,26.6,46444832,85.4,82.7,9.1,1195119269971.52,Developed
+Sri Lanka,Asia,23.1,20970000,78.3,75.2,3.9,80604080688.58,Developing
+Sudan (former),Africa,24.3,38902950,66.6,64.8,7.2,96741742021.67,Developing
+Suriname,South America,26.5,559143,74.8,71.6,6.2,4787367928.12,Developing
+Sweden,Europe,26.3,9799186,84,82.1,11,503650641896.13,Developed
+Switzerland,Europe,25.7,8282396,84.9,83,11.9,679832391757.54,Developed
+Syrian Arab Republic,Asia,27.7,17997408,68.3,63,,,Developing
+Tajikistan,Asia,25.4,8454028,72.8,70.6,6.9,7854602391.65,Developing
+Thailand,Asia,24.5,68714511,79.1,75.3,3.7,401295970240.34,Developing
+Timor-Leste,Asia,21.0,1196302,70.1,68.3,3.5,3092624800.00,Developing
+Togo,Africa,23.3,7323158,61.1,60.2,6.2,4179185205.16,Developing
+Tonga,Oceania,31.8,100781,76.2,73.3,4.7,435438217.28,Developing
+Trinidad and Tobago,North America,27.7,1370328,75.4,71.7,6,25062893969.33,Developing
+Tunisia,Africa,26.3,11179949,77.8,75.8,7,43173480831.97,Developing
+Turkey,Europe/Asia,27.8,78529409,79.2,76.1,4.1,859796872677.61,Developing
+Turkmenistan,Asia,26.1,5565287,71.3,67.8,6.3,35799714285.71,Developing
+Tuvalu,Oceania,30.6,11099,,,16.7,35492333.86,Developing
+Uganda,Africa,22.3,38225453,64.5,62.1,6.8,27102650386.60,Developing
+Ukraine,Europe,26.8,45154029,76.8,72.1,6.9,91030959454.70,Developing
+United Arab Emirates,Asia,28.4,9262900,78.5,77,3.6,358135057862.49,Developing
+United Kingdom of Great Britain and Northern Ireland,Europe,27.4,65116219,82.9,81.1,9.7,2928591002002.51,Developed
+United Republic of Tanzania,Africa,22.9,51482633,65.4,63.4,3.6,47378599025.30,Developing
+United States of America,North America,29.0,320635163,81,78.6,16.8,18219297584000.00,Developed
+Uruguay,South America,27.5,3412009,80.6,76.8,9,53274304222.18,Developing
+Uzbekistan,Asia,26.3,31298900,74.8,72.1,6.1,81847410181.80,Developing
+Vanuatu,Oceania,26.0,271130,73.9,71.8,4.2,759689950.93,Developing
+Venezuela (Bolivarian Republic of),South America,26.6,30081829,78.9,73.9,5.1,,Developing
+Viet Nam,Asia,21.7,92677076,80.7,76.2,5.7,193241108709.54,Developing
+Yemen,Asia,23.3,26497889,66.2,64.5,4.2,42628328212.10,Developing
+Zambia,Africa,22.1,15879361,63.6,61.7,4.4,21243350632.50,Developing
+Zimbabwe,Africa,23.3,13814629,62.4,60.8,7.5,19963120600.00,Developing
